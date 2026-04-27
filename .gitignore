@@ -1,0 +1,11 @@
+# Local Codex skills and agent cache
+.codex/
+
+# MoonBit build output
+target/
+.moon/
+
+# OS/editor noise
+.DS_Store
+*.swp
+*.swo

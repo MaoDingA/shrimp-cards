@@ -1,6 +1,14 @@
 # Local Codex skills and agent cache
 .codex/
 
+# Local planning notes
+TODO.md
+docs/superpowers/specs/
+
+# Local match output
+replays/
+host.log
+
 # MoonBit build output
 target/
 .moon/

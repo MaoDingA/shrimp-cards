@@ -1,3 +1,3 @@
-# 小虾牌 (Shrimp Deck)
+# 小虾牌 (Shrimp Cards)
 
 A MoonBit game project.

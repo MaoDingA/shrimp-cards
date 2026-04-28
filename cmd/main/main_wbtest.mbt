@@ -18,3 +18,52 @@ test "join command tracks input windows from host messages" {
   )
   assert_true(unchanged == Some(@protocol.WindowId::new(2)))
 }
+
+///|
+test "player host event summary uses visibility filter" {
+  match
+    visible_host_message_summary(
+      @client_ws.EventMessage(@protocol.PlayerReady(@protocol.A)),
+      @protocol.B,
+    ) {
+    Some(summary) => assert_eq(summary, "event A ready")
+    None => fail("expected visible event summary")
+  }
+}
+
+///|
+test "replay command formats event stream lines" {
+  let log = @replay.ReplayEventLog::new(
+    @replay.ReplayHeader::new(
+      "match-1", "2026-04-28T00:00:00Z", 42, @protocol.protocol_version, @replay.replay_format_version,
+    ),
+    [
+      @replay.ReplayEventRecord::{
+        event_id: 0,
+        event: @protocol.PlayerJoined(
+          @protocol.PlayerIdentity::new("p1", "Alice", @protocol.A),
+        ),
+      },
+      @replay.ReplayEventRecord::{
+        event_id: 1,
+        event: @protocol.PlayerReady(@protocol.A),
+      },
+    ],
+  )
+  assert_eq(replay_event_lines(log, "A"), [
+    "replay match-1 view A", "#0 Alice joined as A", "#1 A ready",
+  ])
+}
+
+///|
+test "replay command rejects unknown view labels" {
+  let log = @replay.ReplayEventLog::new(
+    @replay.ReplayHeader::new(
+      "match-1", "2026-04-28T00:00:00Z", 42, @protocol.protocol_version, @replay.replay_format_version,
+    ),
+    [],
+  )
+  assert_eq(replay_event_lines(log, "spectator"), [
+    "invalid replay view: spectator",
+  ])
+}

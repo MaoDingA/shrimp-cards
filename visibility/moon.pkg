@@ -2,3 +2,5 @@ import {
   "MaoDingA/shrimp_cards/protocol" @protocol,
   "MaoDingA/shrimp_cards/replay" @replay,
 }
+
+supported_targets = "+native"

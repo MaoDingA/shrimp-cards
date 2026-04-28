@@ -37,3 +37,19 @@ test "replay window view uses the same hidden-plan boundary" {
   assert_eq(view.opponent_agent_plan, None)
   assert_eq(view.public_interventions.length(), 1)
 }
+
+///|
+test "public server event is visible through shared filter" {
+  match
+    visible_event_for_side(@protocol.PlayerReady(@protocol.A), @protocol.B) {
+    Some(@protocol.PlayerReady(side)) => assert_true(side == @protocol.A)
+    _ => fail("expected ready event to be visible")
+  }
+}
+
+///|
+test "replay view side parser accepts player labels" {
+  assert_true(side_from_view("A") == Some(@protocol.A))
+  assert_true(side_from_view("B") == Some(@protocol.B))
+  assert_true(side_from_view("spectator") is None)
+}

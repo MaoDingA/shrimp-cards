@@ -4,6 +4,8 @@ import {
   "MaoDingA/shrimp_cards/cli" @cli,
   "MaoDingA/shrimp_cards/host/ws" @host_ws,
   "MaoDingA/shrimp_cards/protocol" @protocol,
+  "MaoDingA/shrimp_cards/replay" @replay,
+  "MaoDingA/shrimp_cards/visibility" @visibility,
   "moonbitlang/core/env" @env,
   "moonbitlang/async" @async,
   "moonbitlang/async/http" @http,

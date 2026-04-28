@@ -8,7 +8,11 @@ import {
 }
 
 // Values
+pub fn side_from_view(String) -> @protocol.Side?
+
 pub fn view_replay_window(@replay.ReplayWindowRecord, @protocol.Side) -> PlayerWindowView
+
+pub fn visible_event_for_side(@protocol.ServerEvent, @protocol.Side) -> @protocol.ServerEvent?
 
 // Errors
 

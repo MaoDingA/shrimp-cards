@@ -78,3 +78,60 @@ test "replay event journal returns public events from cursor" {
     _ => fail("expected one replay event")
   }
 }
+
+///|
+async test "replay event log writes and loads compatible json" {
+  @async.pause()
+  let journal = ReplayEventJournal::new()
+  ignore(
+    journal.append(
+      @protocol.PlayerJoined(
+        @protocol.PlayerIdentity::new("p1", "Alice", @protocol.A),
+      ),
+    ),
+  )
+  ignore(journal.append(@protocol.PlayerReady(@protocol.A)))
+  let header = ReplayHeader::new(
+    "match-1", "2026-04-28T00:00:00Z", 42, @protocol.protocol_version, replay_format_version,
+  )
+  let path = "_build/replay_event_log_test.json"
+  @fs.remove(path) catch {
+    _ => ()
+  }
+  let log = journal.to_event_log(header)
+  log.save(path)
+  match load_event_log(path) {
+    Some(loaded) => {
+      assert_true(loaded.is_compatible())
+      match loaded.records_from(1) {
+        [record] =>
+          assert_true(record.event == @protocol.PlayerReady(@protocol.A))
+        _ => fail("expected replayed ready event")
+      }
+    }
+    None => fail("expected replay event log")
+  }
+}
+
+///|
+async test "replay event log rejects incompatible versions on load" {
+  @async.pause()
+  let journal = ReplayEventJournal::new()
+  ignore(journal.append(@protocol.PlayerReady(@protocol.A)))
+  let header = ReplayHeader::new(
+    "match-2",
+    "2026-04-28T00:00:00Z",
+    42,
+    @protocol.protocol_version + 1,
+    replay_format_version,
+  )
+  let path = "_build/replay_event_log_bad_version_test.json"
+  @fs.remove(path) catch {
+    _ => ()
+  }
+  journal.to_event_log(header).save(path)
+  match load_event_log(path) {
+    None => ()
+    Some(_) => fail("expected incompatible replay to be rejected")
+  }
+}

@@ -1,4 +1,11 @@
 import {
   "MaoDingA/shrimp_cards/protocol" @protocol,
+  "moonbitlang/async/fs" @fs,
   "moonbitlang/core/json",
 }
+
+import {
+  "moonbitlang/async" @async,
+} for "wbtest"
+
+supported_targets = "+native"

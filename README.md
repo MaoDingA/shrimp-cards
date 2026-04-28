@@ -1,18 +1,19 @@
 # 小虾牌 (Shrimp Cards)
 
-Shrimp Cards is a terminal-first MoonBit card-game foundation for PvE and PvP
-experiments. The current code focuses on non-gameplay infrastructure: local
-host/client communication, live intervention windows, replay recording, and
-agent plan placeholders.
+简体中文 | [English](./README.en.md)
 
-Gameplay rules are intentionally not defined yet.
+小虾牌是一个终端优先的 MoonBit 卡牌游戏基础项目，用来支持 PvE 和 PvP
+实验。当前代码重点放在玩法以外的基础设施：本地 host/client 通信、实时干预窗口、replay
+记录，以及 agent 计划占位流程。
 
-## Requirements
+玩法规则目前仍然刻意留空，后续再单独设计。
 
-- MoonBit toolchain
-- A terminal that can run three shell sessions
+## 环境要求
 
-## Check The Project
+- MoonBit 工具链
+- 可以同时运行三个 shell 会话的终端
+
+## 检查项目
 
 ```sh
 moon fmt --check
@@ -22,9 +23,9 @@ moon test
 moon info --target native
 ```
 
-## Run A Local Match
+## 运行本地对局
 
-Start a host:
+启动 host：
 
 ```sh
 moon run cmd/main --target native -- host \
@@ -34,7 +35,7 @@ moon run cmd/main --target native -- host \
   --replay-dir replays
 ```
 
-Join as player A in a second terminal:
+在第二个终端加入玩家 A：
 
 ```sh
 moon run cmd/main --target native -- join \
@@ -43,16 +44,16 @@ moon run cmd/main --target native -- join \
   --host ws://127.0.0.1:7777/match
 ```
 
-Join as player B in a third terminal:
+在第三个终端加入玩家 B：
 
 ```sh
 moon run cmd/main --target native -- join \
   --name Bob \
-  --lang en \
+  --lang zh \
   --host ws://127.0.0.1:7777/match
 ```
 
-Useful supervisor commands in each player terminal:
+玩家终端里可用的监督命令：
 
 ```text
 /ready
@@ -64,16 +65,13 @@ Useful supervisor commands in each player terminal:
 /lang en
 ```
 
-The match opens the first intervention window after both players send
-`/ready`. `/prefer` and `/ban` add supervisor interventions. `/lock` closes the
-current window, emits final placeholder plans, executes a placeholder step, and
-opens the next window. `/leave` ends the match and saves the replay. `/lang`
-changes only the current client display language; it is not sent to the host and
-does not alter replay data.
+双方玩家都发送 `/ready` 后，对局会打开第一个干预窗口。`/prefer` 和 `/ban`
+用于提交监督干预。`/lock` 会关闭当前窗口，生成占位的最终计划，执行一个占位步骤，然后打开下一个窗口。`/leave`
+会结束对局并保存 replay。`/lang` 只切换当前客户端的显示语言，不会发送给 host，也不会改变 replay 数据。
 
 ## Replay
 
-Print the full event stream:
+打印完整事件流：
 
 ```sh
 moon run cmd/main --target native -- replay \
@@ -82,7 +80,7 @@ moon run cmd/main --target native -- replay \
   --mode events
 ```
 
-Print events grouped by input window:
+按输入窗口分组打印事件：
 
 ```sh
 moon run cmd/main --target native -- replay \
@@ -91,7 +89,7 @@ moon run cmd/main --target native -- replay \
   --mode windows
 ```
 
-Print replay metadata:
+打印 replay 元数据：
 
 ```sh
 moon run cmd/main --target native -- replay \
@@ -101,5 +99,4 @@ moon run cmd/main --target native -- replay \
 
 ## CI
 
-GitHub Actions runs formatting, native checks, native tests, default tests, and
-generated interface verification on pushes to `main` and on pull requests.
+GitHub Actions 会在推送到 `main` 和创建 pull request 时运行格式检查、native 检查、native 测试、默认测试和生成接口校验。

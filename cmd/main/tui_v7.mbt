@@ -120,11 +120,12 @@ fn join_startup_screen_lines(
   host_url~ : String,
   lang~ : DisplayLang,
 ) -> Array[String] {
-  [
-    "小虾牌 Shrimp Cards",
-    "terminal-first supervised card battle · \{lang.language_label()}",
-    "────────────────────────────────────────────────────────────────────────",
-    "connecting · \{host_url}",
+  let lines : Array[String] = []
+  append_box(lines, "小虾牌 Shrimp Cards", [
+    "terminal-first supervised card battle",
+    "local PVE/PVP shell · \{lang.language_label()}",
+  ])
+  append_box(lines, "connecting", [
     "准备加入本地对局 / Preparing local match session",
     "host  \{host_url}",
     "",
@@ -134,7 +135,8 @@ fn join_startup_screen_lines(
     "recent  waiting for host response",
     "",
     "\{display_name}:-- › \{lang.connecting_prompt()}",
-  ]
+  ])
+  lines
 }
 
 ///|
@@ -144,11 +146,12 @@ fn join_rejected_screen_lines(
   lang~ : DisplayLang,
   reason~ : String,
 ) -> Array[String] {
-  [
-    "小虾牌 Shrimp Cards",
-    "terminal-first supervised card battle · \{lang.language_label()}",
-    "────────────────────────────────────────────────────────────────────────",
-    "join rejected",
+  let lines : Array[String] = []
+  append_box(lines, "小虾牌 Shrimp Cards", [
+    "terminal-first supervised card battle",
+    "local PVE/PVP shell · \{lang.language_label()}",
+  ])
+  append_box(lines, "join rejected", [
     "reason: \{reason}",
     "host  \{host_url}",
     "",
@@ -156,7 +159,8 @@ fn join_rejected_screen_lines(
     three_column_line(display_name, "rejected", lang.language_label(), 26),
     "",
     "\{display_name}:-- › \{lang.reconnect_later_prompt()}",
-  ]
+  ])
+  lines
 }
 
 ///|
@@ -165,21 +169,24 @@ fn TerminalViewState::v7_screen_lines(
   lang : DisplayLang,
 ) -> Array[String] {
   let window = window_state_number(self.window_state)
-  [
-    "小虾牌 Shrimp Cards",
-    "A/B supervised agent card battle · \{self.viewer.label()} · \{lang.language_label()} · replay \{self.replay_label()}",
-    "────────────────────────────────────────────────────────────────────────",
-    window_phase(self.window_state),
+  let lines : Array[String] = []
+  append_box(lines, "小虾牌 Shrimp Cards", [
+    "A/B supervised agent card battle",
+    "viewer \{self.viewer.label()} · replay \{self.replay_label()}",
+  ])
+  append_box(lines, window_phase(self.window_state), [
     current_question(lang),
     current_brief(lang),
     "",
     "agent intent",
-    agent_plan_text(self, lang),
-    agent_reason_text(self, lang),
-    "",
+    "│ \{agent_plan_text(self, lang)}",
+    "│ \{agent_reason_text(self, lang)}",
+  ])
+  append_box(lines, "actions", [
     three_column_line("recommend", "forbid", "accept", 26),
     three_column_line(recommend_command(lang), "/ban risky draw", "/lock", 26),
-    "",
+  ])
+  append_box(lines, "context", [
     three_column_line("match", "visibility", "language", 26),
     three_column_line(
       "window \{window}",
@@ -191,5 +198,6 @@ fn TerminalViewState::v7_screen_lines(
     recent_log_line(self.logs),
     "",
     "\{self.viewer.label()}:\{window} › \{prompt_command(lang, self.window_state)}",
-  ]
+  ])
+  lines
 }

@@ -58,11 +58,11 @@ test "terminal screen renderer uses v7 decision spine" {
     @client_ws.EventMessage(@protocol.ReplaySaved("replays/match-1.json")),
   )
   let lines = state.screen_lines(display_lang_from_code("zh"))
-  assert_true(lines.contains("小虾牌 Shrimp Cards"))
-  assert_true(lines.contains("window 02 · intervention open"))
-  assert_true(lines.contains("现在要不要改 Agent 的计划？"))
-  assert_true(
-    lines.contains("A:02 › /prefer 优先防守，除非出现斩杀"),
+  assert_has_line_prefix(lines, "╭─ 小虾牌 Shrimp Cards")
+  assert_has_line_prefix(lines, "╭─ window 02 · intervention open")
+  assert_has_line_prefix(lines, "│  现在要不要改 Agent 的计划？")
+  assert_has_line_prefix(
+    lines, "│  A:02 › /prefer 优先防守，除非出现斩杀",
   )
 }
 
@@ -75,7 +75,7 @@ test "terminal screen renderer keeps recent log lines" {
   let lines = state.screen_lines(display_lang_from_code("zh"))
   assert_false(lines.contains("event 1"))
   assert_false(lines.contains("event 2"))
-  assert_true(lines.contains("recent  event 10"))
+  assert_has_line_prefix(lines, "│  recent  event 10")
 }
 
 ///|
@@ -91,8 +91,8 @@ test "terminal clears input window after lock" {
   )
   assert_true(state.current_window_id is None)
   let lines = state.screen_lines(display_lang_from_code("zh"))
-  assert_true(lines.contains("window 02 · locked"))
-  assert_true(lines.contains("A:02 › 等待 host 结算"))
+  assert_has_line_prefix(lines, "╭─ window 02 · locked")
+  assert_has_line_prefix(lines, "│  A:02 › 等待 host 结算")
 }
 
 ///|
@@ -108,8 +108,8 @@ test "terminal shows ended state without intervention prompt" {
   )
   assert_true(state.current_window_id is None)
   let lines = state.screen_lines(display_lang_from_code("en"))
-  assert_true(lines.contains("match ended"))
-  assert_true(lines.contains("B:-- › match ended"))
+  assert_has_line_prefix(lines, "╭─ match ended")
+  assert_has_line_prefix(lines, "│  B:-- › match ended")
 }
 
 ///|

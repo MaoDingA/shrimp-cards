@@ -138,12 +138,13 @@ fn print_lines(lines : Array[String]) -> Unit {
 ///|
 fn print_screen_lines(lines : Array[String]) -> Unit {
   println("\u{1B}[2J\u{1B}[H")
-  print_lines(lines)
+  print_lines(style_terminal_lines(lines))
 }
 
 ///|
 fn print_terminal_screen(state : TerminalViewState, lang : DisplayLang) -> Unit {
-  print_screen_lines(state.screen_lines(lang))
+  println("\u{1B}[2J\u{1B}[H")
+  print_lines(state.styled_screen_lines(lang))
 }
 
 ///|

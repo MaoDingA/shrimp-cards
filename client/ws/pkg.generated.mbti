@@ -4,9 +4,12 @@ package "MaoDingA/shrimp_cards/client/ws"
 import {
   "MaoDingA/shrimp_cards/client",
   "MaoDingA/shrimp_cards/protocol",
+  "moonbitlang/core/debug",
 }
 
 // Values
+pub async fn connect_live(@client.ClientConfig) -> LiveJoin
+
 pub async fn join_once(@client.ClientConfig) -> @protocol.JoinResponse
 
 pub async fn send_input_once(String, @protocol.ClientInput) -> @protocol.InputResponse
@@ -14,6 +17,27 @@ pub async fn send_input_once(String, @protocol.ClientInput) -> @protocol.InputRe
 // Errors
 
 // Types and methods
+pub(all) enum HostMessage {
+  JoinMessage(@protocol.JoinResponse)
+  InputMessage(@protocol.InputResponse)
+  EventMessage(@protocol.ServerEvent)
+  UnknownHostFrame(String)
+} derive(Eq, @debug.Debug)
+pub fn HostMessage::from_wire_text(String) -> Self
+pub fn HostMessage::opened_window(Self) -> @protocol.WindowId?
+pub fn HostMessage::summary(Self) -> String
+
+pub(all) struct LiveJoin {
+  session : LiveSession
+  response : @protocol.JoinResponse
+}
+
+pub struct LiveSession {
+  // private fields
+}
+pub fn LiveSession::close(Self) -> Unit
+pub async fn LiveSession::recv_message(Self) -> HostMessage
+pub async fn LiveSession::send_input(Self, @protocol.ClientInput) -> Unit
 
 // Type aliases
 

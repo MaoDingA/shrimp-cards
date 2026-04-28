@@ -2,24 +2,28 @@
 
 ///|
 fn log_server_reply(frame : String) -> Unit {
-  match @protocol.JoinResponse::from_wire_text(frame) {
-    Some(response) => println("join \{response.summary()}")
-    None =>
-      match @protocol.InputResponse::from_wire_text(frame) {
-        Some(response) => println("input \{response.summary()}")
-        None => println("invalid response")
-      }
+  println(@client_ws.HostMessage::from_wire_text(frame).summary())
+}
+
+///|
+fn updated_window_from_host_message(
+  message : @client_ws.HostMessage,
+  current : @protocol.WindowId?,
+) -> @protocol.WindowId? {
+  match message.opened_window() {
+    Some(window_id) => Some(window_id)
+    None => current
   }
 }
 
 ///|
-fn updated_window(
-  response : @protocol.InputResponse,
-  current : @protocol.WindowId?,
-) -> @protocol.WindowId? {
-  match response {
-    WindowOpened(window_id) => Some(window_id)
-    _ => current
+fn should_print_host_message(message : @client_ws.HostMessage) -> Bool {
+  match message {
+    EventMessage(_) => true
+    InputMessage(InputRejected(_)) => true
+    JoinMessage(JoinRejected(_)) => true
+    UnknownHostFrame(_) => true
+    _ => false
   }
 }
 
@@ -30,34 +34,50 @@ async fn run_join(options : @cli.JoinOptions) -> Unit {
     display_name=options.display_name,
     host_url=options.host_url,
   )
-  let response = @client_ws.join_once(config)
-  println(response.summary())
-  match response {
+  let live = @client_ws.connect_live(config)
+  println(live.response.summary())
+  match live.response {
     JoinAccepted(player) => {
       let mut current_window_id : @protocol.WindowId? = None
       let mut sequence_id = 1
-      while @stdio.stdin.read_until("\n") is Some(line) {
-        match
-          @client.parse_supervisor_line(
-            player.side,
-            current_window_id,
-            @protocol.SequenceId::new(sequence_id),
-            line,
-          ) {
-          Some(input) => {
-            let reply = @client_ws.send_input_once(options.host_url, input)
-            println(reply.summary())
-            current_window_id = updated_window(reply, current_window_id)
-            sequence_id += 1
-            if reply is MatchLeft(_) {
-              break
+      @async.with_task_group(group => {
+        group.spawn_bg(no_wait=true, () => {
+          try {
+            for ;; {
+              let message = live.session.recv_message()
+              current_window_id = updated_window_from_host_message(
+                message, current_window_id,
+              )
+              if should_print_host_message(message) {
+                println(message.summary())
+              }
             }
+          } catch {
+            _ => ()
           }
-          None => println("ignored input")
+        })
+        while @stdio.stdin.read_until("\n") is Some(line) {
+          match
+            @client.parse_supervisor_line(
+              player.side,
+              current_window_id,
+              @protocol.SequenceId::new(sequence_id),
+              line,
+            ) {
+            Some(input) => {
+              live.session.send_input(input)
+              sequence_id += 1
+              if input is Leave(_) {
+                break
+              }
+            }
+            None => println("ignored input")
+          }
         }
-      }
+        live.session.close()
+      })
     }
-    JoinRejected(_) => ()
+    JoinRejected(_) => live.session.close()
   }
 }
 

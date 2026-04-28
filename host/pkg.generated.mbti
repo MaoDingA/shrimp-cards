@@ -11,6 +11,14 @@ import {
 // Errors
 
 // Types and methods
+pub struct FrameOutcome {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn FrameOutcome::reply_text(Self) -> String
+pub fn FrameOutcome::server_events(Self) -> Array[@protocol.ServerEvent]
+
+type InputOutcome derive(Eq, @debug.Debug)
+
 pub(all) enum JoinDecision {
   Accepted(@protocol.PlayerIdentity)
   Rejected(String)
@@ -32,6 +40,8 @@ pub(all) struct MatchSession {
   mut current_window_id : @protocol.WindowId?
 } derive(Eq, @debug.Debug)
 pub fn MatchSession::handle_frame(Self, String) -> String
+pub fn MatchSession::handle_frame_events(Self, String) -> Array[@protocol.ServerEvent]
+pub fn MatchSession::handle_frame_outcome(Self, String) -> FrameOutcome
 pub fn MatchSession::handle_input(Self, @protocol.ClientInput) -> @protocol.InputResponse
 pub fn MatchSession::new() -> Self
 

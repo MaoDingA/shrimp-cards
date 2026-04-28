@@ -5,7 +5,7 @@ import {
   "MaoDingA/shrimp_cards/host/ws" @host_ws,
   "MaoDingA/shrimp_cards/protocol" @protocol,
   "moonbitlang/core/env" @env,
-  "moonbitlang/async",
+  "moonbitlang/async" @async,
   "moonbitlang/async/http" @http,
   "moonbitlang/async/socket" @socket,
   "moonbitlang/async/stdio" @stdio,

@@ -117,3 +117,87 @@ test "match session handles leave input" {
     _ => fail("expected leave response")
   }
 }
+
+///|
+test "match session emits public event when player joins" {
+  let session = MatchSession::new()
+  let events = session.handle_frame_events(
+    @protocol.JoinRequest::new("p1", "Alice").to_wire_text(),
+  )
+  match events {
+    [@protocol.PlayerJoined(player)] => {
+      assert_eq(player.display_name, "Alice")
+      assert_true(player.side == @protocol.A)
+    }
+    _ => fail("expected joined event")
+  }
+}
+
+///|
+test "match session emits ready then window opened events" {
+  let session = MatchSession::new()
+  ignore(
+    session.handle_frame_events(
+      @protocol.JoinRequest::new("p1", "Alice").to_wire_text(),
+    ),
+  )
+  ignore(
+    session.handle_frame_events(
+      @protocol.JoinRequest::new("p2", "Bob").to_wire_text(),
+    ),
+  )
+  match
+    session.handle_frame_events(@protocol.Ready(@protocol.A).to_wire_text()) {
+    [@protocol.PlayerReady(side)] => assert_true(side == @protocol.A)
+    _ => fail("expected A ready event")
+  }
+  match
+    session.handle_frame_events(@protocol.Ready(@protocol.B).to_wire_text()) {
+    [@protocol.PlayerReady(side), @protocol.InputWindowOpened(window_id)] => {
+      assert_true(side == @protocol.B)
+      assert_true(window_id == @protocol.WindowId::new(1))
+    }
+    _ => fail("expected B ready and window opened events")
+  }
+}
+
+///|
+test "match session emits intervention and leave events" {
+  let session = MatchSession::new()
+  ignore(
+    session.handle_frame_events(
+      @protocol.JoinRequest::new("p1", "Alice").to_wire_text(),
+    ),
+  )
+  ignore(
+    session.handle_frame_events(
+      @protocol.JoinRequest::new("p2", "Bob").to_wire_text(),
+    ),
+  )
+  ignore(
+    session.handle_frame_events(@protocol.Ready(@protocol.A).to_wire_text()),
+  )
+  ignore(
+    session.handle_frame_events(@protocol.Ready(@protocol.B).to_wire_text()),
+  )
+  let intervention = @protocol.Intervention::new(
+    side=@protocol.A,
+    window_id=@protocol.WindowId::new(1),
+    sequence_id=@protocol.SequenceId::new(1),
+    kind=@protocol.SoftPreference,
+    text="/prefer defend",
+  )
+  match
+    session.handle_frame_events(
+      @protocol.SubmitIntervention(intervention).to_wire_text(),
+    ) {
+    [@protocol.InterventionSubmitted(decoded)] =>
+      assert_true(decoded.side == @protocol.A)
+    _ => fail("expected intervention event")
+  }
+  match
+    session.handle_frame_events(@protocol.Leave(@protocol.B).to_wire_text()) {
+    [@protocol.PlayerLeft(side)] => assert_true(side == @protocol.B)
+    _ => fail("expected leave event")
+  }
+}

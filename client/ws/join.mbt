@@ -21,3 +21,55 @@ pub async fn send_input_once(
     None => @protocol.InputRejected("invalid host response")
   }
 }
+
+///|
+pub struct LiveSession {
+  priv conn : @raw_ws.Conn
+}
+
+///|
+pub(all) struct LiveJoin {
+  session : LiveSession
+  response : @protocol.JoinResponse
+}
+
+///|
+async fn read_text(conn : @raw_ws.Conn) -> String {
+  let msg = conn.recv()
+  match msg.kind {
+    Text => msg.read_all().text()
+    Binary => {
+      ignore(msg.read_all().binary())
+      ""
+    }
+  }
+}
+
+///|
+pub async fn connect_live(config : @client.ClientConfig) -> LiveJoin {
+  let conn = @raw_ws.connect(config.host_url)
+  conn.send_text(config.join_request().to_wire_text())
+  let response = match @protocol.JoinResponse::from_wire_text(read_text(conn)) {
+    Some(response) => response
+    None => @protocol.JoinRejected("invalid host response")
+  }
+  { session: { conn, }, response }
+}
+
+///|
+pub async fn LiveSession::recv_message(self : LiveSession) -> HostMessage {
+  HostMessage::from_wire_text(read_text(self.conn))
+}
+
+///|
+pub async fn LiveSession::send_input(
+  self : LiveSession,
+  input : @protocol.ClientInput,
+) -> Unit {
+  self.conn.send_text(input.to_wire_text())
+}
+
+///|
+pub fn LiveSession::close(self : LiveSession) -> Unit {
+  self.conn.close()
+}

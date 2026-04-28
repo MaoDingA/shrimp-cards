@@ -136,3 +136,45 @@ test "host input response round trips window opened" {
     _ => fail("expected window opened response")
   }
 }
+
+///|
+test "server event round trips ready and window opened" {
+  let ready = PlayerReady(A)
+  match ServerEvent::from_wire_text(ready.to_wire_text()) {
+    Some(PlayerReady(side)) => assert_true(side == A)
+    _ => fail("expected ready event")
+  }
+  let opened = InputWindowOpened(WindowId::new(1))
+  match ServerEvent::from_wire_text(opened.to_wire_text()) {
+    Some(InputWindowOpened(window_id)) =>
+      assert_true(window_id == WindowId::new(1))
+    _ => fail("expected window event")
+  }
+}
+
+///|
+test "server event round trips intervention and leave" {
+  let intervention = Intervention::new(
+    side=B,
+    window_id=WindowId::new(2),
+    sequence_id=SequenceId::new(3),
+    kind=HardConstraint,
+    text="/ban strike",
+  )
+  let submitted = InterventionSubmitted(intervention)
+  match ServerEvent::from_wire_text(submitted.to_wire_text()) {
+    Some(InterventionSubmitted(decoded)) => {
+      assert_true(decoded.side == B)
+      assert_true(decoded.window_id == WindowId::new(2))
+      assert_true(decoded.sequence_id == SequenceId::new(3))
+      assert_true(decoded.kind == HardConstraint)
+      assert_eq(decoded.text, "/ban strike")
+    }
+    _ => fail("expected intervention event")
+  }
+  let left = PlayerLeft(A)
+  match ServerEvent::from_wire_text(left.to_wire_text()) {
+    Some(PlayerLeft(side)) => assert_true(side == A)
+    _ => fail("expected leave event")
+  }
+}

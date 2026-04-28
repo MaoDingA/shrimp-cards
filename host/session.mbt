@@ -49,41 +49,90 @@ fn MatchSession::next_window(self : MatchSession) -> @protocol.WindowId {
 }
 
 ///|
-fn MatchSession::handle_ready(
+struct InputOutcome {
+  response : @protocol.InputResponse
+  events : Array[@protocol.ServerEvent]
+} derive(Eq, Debug)
+
+///|
+pub struct FrameOutcome {
+  priv reply : String
+  priv events : Array[@protocol.ServerEvent]
+} derive(Eq, Debug)
+
+///|
+pub fn FrameOutcome::reply_text(self : FrameOutcome) -> String {
+  self.reply
+}
+
+///|
+pub fn FrameOutcome::server_events(
+  self : FrameOutcome,
+) -> Array[@protocol.ServerEvent] {
+  self.events
+}
+
+///|
+fn MatchSession::handle_ready_outcome(
   self : MatchSession,
   side : @protocol.Side,
-) -> @protocol.InputResponse {
+) -> InputOutcome {
+  let events : Array[@protocol.ServerEvent] = []
   if !self.has_side(side) {
-    @protocol.InputRejected("side not seated")
+    { response: @protocol.InputRejected("side not seated"), events }
   } else {
     self.mark_ready(side)
+    events.push(@protocol.PlayerReady(side))
     if self.both_ready() && self.current_window_id is None {
       let window_id = self.next_window()
       self.current_window_id = Some(window_id)
-      @protocol.WindowOpened(window_id)
+      events.push(@protocol.InputWindowOpened(window_id))
+      { response: @protocol.WindowOpened(window_id), events }
     } else {
-      @protocol.ReadyAccepted(side)
+      { response: @protocol.ReadyAccepted(side), events }
     }
   }
 }
 
 ///|
-fn MatchSession::handle_intervention(
+fn MatchSession::handle_intervention_outcome(
   self : MatchSession,
   intervention : @protocol.Intervention,
-) -> @protocol.InputResponse {
+) -> InputOutcome {
+  let events : Array[@protocol.ServerEvent] = []
   if !self.has_side(intervention.side) {
-    @protocol.InputRejected("side not seated")
+    { response: @protocol.InputRejected("side not seated"), events }
   } else {
     match self.current_window_id {
-      None => @protocol.InputRejected("no open input window")
+      None =>
+        { response: @protocol.InputRejected("no open input window"), events }
       Some(window_id) =>
         if intervention.is_for_window(window_id) {
-          @protocol.InterventionAccepted(intervention)
+          events.push(@protocol.InterventionSubmitted(intervention))
+          { response: @protocol.InterventionAccepted(intervention), events }
         } else {
-          @protocol.InputRejected("stale input window")
+          { response: @protocol.InputRejected("stale input window"), events }
         }
     }
+  }
+}
+
+///|
+fn MatchSession::handle_input_outcome(
+  self : MatchSession,
+  input : @protocol.ClientInput,
+) -> InputOutcome {
+  match input {
+    @protocol.Ready(side) => self.handle_ready_outcome(side)
+    @protocol.Leave(side) => {
+      let events : Array[@protocol.ServerEvent] = []
+      if self.has_side(side) {
+        events.push(@protocol.PlayerLeft(side))
+      }
+      { response: @protocol.MatchLeft(side), events }
+    }
+    @protocol.SubmitIntervention(intervention) =>
+      self.handle_intervention_outcome(intervention)
   }
 }
 
@@ -92,11 +141,37 @@ pub fn MatchSession::handle_input(
   self : MatchSession,
   input : @protocol.ClientInput,
 ) -> @protocol.InputResponse {
-  match input {
-    @protocol.Ready(side) => self.handle_ready(side)
-    @protocol.Leave(side) => @protocol.MatchLeft(side)
-    @protocol.SubmitIntervention(intervention) =>
-      self.handle_intervention(intervention)
+  self.handle_input_outcome(input).response
+}
+
+///|
+pub fn MatchSession::handle_frame_outcome(
+  self : MatchSession,
+  frame : String,
+) -> FrameOutcome {
+  match @protocol.JoinRequest::from_wire_text(frame) {
+    Some(request) =>
+      match self.lobby.accept_join(request) {
+        Accepted(player) =>
+          {
+            reply: @protocol.JoinAccepted(player).to_wire_text(),
+            events: [@protocol.PlayerJoined(player)],
+          }
+        Rejected(reason) =>
+          { reply: @protocol.JoinRejected(reason).to_wire_text(), events: [] }
+      }
+    None =>
+      match @protocol.ClientInput::from_wire_text(frame) {
+        Some(input) => {
+          let outcome = self.handle_input_outcome(input)
+          { reply: outcome.response.to_wire_text(), events: outcome.events }
+        }
+        None =>
+          {
+            reply: @protocol.InputRejected("invalid input").to_wire_text(),
+            events: [],
+          }
+      }
   }
 }
 
@@ -105,12 +180,13 @@ pub fn MatchSession::handle_frame(
   self : MatchSession,
   frame : String,
 ) -> String {
-  match @protocol.JoinRequest::from_wire_text(frame) {
-    Some(request) => self.lobby.accept_join_response(request).to_wire_text()
-    None =>
-      match @protocol.ClientInput::from_wire_text(frame) {
-        Some(input) => self.handle_input(input).to_wire_text()
-        None => @protocol.InputRejected("invalid input").to_wire_text()
-      }
-  }
+  self.handle_frame_outcome(frame).reply_text()
+}
+
+///|
+pub fn MatchSession::handle_frame_events(
+  self : MatchSession,
+  frame : String,
+) -> Array[@protocol.ServerEvent] {
+  self.handle_frame_outcome(frame).events
 }

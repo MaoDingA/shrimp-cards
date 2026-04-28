@@ -1,22 +1,18 @@
 ///|
 test "join command tracks input windows from host messages" {
-  let from_response = updated_window_from_host_message(
+  let state = TerminalViewState::new(@protocol.A)
+  state.apply_host_message(
     @client_ws.InputMessage(@protocol.WindowOpened(@protocol.WindowId::new(1))),
-    None,
   )
-  assert_true(from_response == Some(@protocol.WindowId::new(1)))
-  let from_event = updated_window_from_host_message(
+  assert_true(state.current_window_id == Some(@protocol.WindowId::new(1)))
+  assert_true(state.window_state == Open(@protocol.WindowId::new(1)))
+  state.apply_host_message(
     @client_ws.EventMessage(
       @protocol.InputWindowOpened(@protocol.WindowId::new(2)),
     ),
-    from_response,
   )
-  assert_true(from_event == Some(@protocol.WindowId::new(2)))
-  let unchanged = updated_window_from_host_message(
-    @client_ws.EventMessage(@protocol.PlayerReady(@protocol.A)),
-    from_event,
-  )
-  assert_true(unchanged == Some(@protocol.WindowId::new(2)))
+  assert_true(state.current_window_id == Some(@protocol.WindowId::new(2)))
+  assert_true(state.window_state == Open(@protocol.WindowId::new(2)))
 }
 
 ///|
@@ -32,7 +28,26 @@ test "player host event summary uses visibility filter" {
 }
 
 ///|
-test "terminal screen renderer shows status log and input areas" {
+test "player host event summary hides opponent agent plan" {
+  let plan = @protocol.AgentPlan::new(
+    side=@protocol.B,
+    window_id=@protocol.WindowId::new(1),
+    phase=@protocol.InitialPlan,
+    plan="B secret plan",
+    reason="private reason",
+  )
+  match
+    visible_host_message_summary(
+      @client_ws.EventMessage(@protocol.AgentPlanIssued(plan)),
+      @protocol.A,
+    ) {
+    None => ()
+    Some(_) => fail("expected opponent plan summary to be hidden")
+  }
+}
+
+///|
+test "terminal screen renderer uses v7 decision spine" {
   let state = TerminalViewState::new(@protocol.A)
   state.apply_host_message(
     @client_ws.EventMessage(
@@ -42,10 +57,13 @@ test "terminal screen renderer shows status log and input areas" {
   state.apply_host_message(
     @client_ws.EventMessage(@protocol.ReplaySaved("replays/match-1.json")),
   )
-  assert_eq(state.screen_lines(), [
-    "[panel] seat A | window 2 | status active | replay replays/match-1.json", "[log]",
-    "event window 2 opened", "event replay saved: replays/match-1.json", "[input] /prefer <text> | /ban <text> | /lock | /leave",
-  ])
+  let lines = state.screen_lines(display_lang_from_code("zh"))
+  assert_true(lines.contains("小虾牌 Shrimp Cards"))
+  assert_true(lines.contains("window 02 · intervention open"))
+  assert_true(lines.contains("现在要不要改 Agent 的计划？"))
+  assert_true(
+    lines.contains("A:02 › /prefer 优先防守，除非出现斩杀"),
+  )
 }
 
 ///|
@@ -54,11 +72,44 @@ test "terminal screen renderer keeps recent log lines" {
   for index in 1..<=10 {
     state.logs.push("event \{index}")
   }
-  let lines = state.screen_lines()
+  let lines = state.screen_lines(display_lang_from_code("zh"))
   assert_false(lines.contains("event 1"))
   assert_false(lines.contains("event 2"))
-  assert_true(lines.contains("event 3"))
-  assert_true(lines.contains("event 10"))
+  assert_true(lines.contains("recent  event 10"))
+}
+
+///|
+test "terminal clears input window after lock" {
+  let state = TerminalViewState::new(@protocol.A)
+  state.apply_host_message(
+    @client_ws.EventMessage(
+      @protocol.InputWindowOpened(@protocol.WindowId::new(2)),
+    ),
+  )
+  state.apply_host_message(
+    @client_ws.EventMessage(@protocol.WindowLocked(@protocol.WindowId::new(2))),
+  )
+  assert_true(state.current_window_id is None)
+  let lines = state.screen_lines(display_lang_from_code("zh"))
+  assert_true(lines.contains("window 02 · locked"))
+  assert_true(lines.contains("A:02 › 等待 host 结算"))
+}
+
+///|
+test "terminal shows ended state without intervention prompt" {
+  let state = TerminalViewState::new(@protocol.B)
+  state.apply_host_message(
+    @client_ws.EventMessage(
+      @protocol.InputWindowOpened(@protocol.WindowId::new(3)),
+    ),
+  )
+  state.apply_host_message(
+    @client_ws.EventMessage(@protocol.MatchEnded("B left")),
+  )
+  assert_true(state.current_window_id is None)
+  let lines = state.screen_lines(display_lang_from_code("en"))
+  assert_true(lines.contains("match ended"))
+  assert_true(lines.contains("B:-- › match ended"))
 }
 
 ///|

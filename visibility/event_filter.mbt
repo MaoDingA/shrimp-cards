@@ -10,7 +10,15 @@ pub fn side_from_view(view : String) -> @protocol.Side? {
 ///|
 pub fn visible_event_for_side(
   event : @protocol.ServerEvent,
-  _viewer : @protocol.Side,
+  viewer : @protocol.Side,
 ) -> @protocol.ServerEvent? {
-  Some(event)
+  match event {
+    AgentPlanIssued(plan) =>
+      if plan.side == viewer {
+        Some(event)
+      } else {
+        None
+      }
+    _ => Some(event)
+  }
 }

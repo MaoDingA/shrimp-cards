@@ -11,6 +11,7 @@ import {
   "moonbitlang/async/http" @http,
   "moonbitlang/async/socket" @socket,
   "moonbitlang/async/stdio" @stdio,
+  "moonbitlang/core/string",
 }
 
 supported_targets = "+native"

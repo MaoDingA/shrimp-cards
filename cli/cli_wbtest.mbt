@@ -40,7 +40,19 @@ test "parse join command captures display name" {
     Join(options) => {
       assert_eq(options.display_name, "Alice")
       assert_eq(options.host_url, "ws://127.0.0.1:7777/match")
+      assert_eq(options.lang, "zh")
     }
+    _ => fail("expected join command")
+  }
+}
+
+///|
+test "parse join command captures language option" {
+  let command = parse_command([
+    "shrimp-cards", "join", "--name", "Alice", "--lang", "en",
+  ])
+  match command {
+    Join(options) => assert_eq(options.lang, "en")
     _ => fail("expected join command")
   }
 }

@@ -39,6 +39,7 @@ Join as player A in a second terminal:
 ```sh
 moon run cmd/main --target native -- join \
   --name Alice \
+  --lang zh \
   --host ws://127.0.0.1:7777/match
 ```
 
@@ -47,6 +48,7 @@ Join as player B in a third terminal:
 ```sh
 moon run cmd/main --target native -- join \
   --name Bob \
+  --lang en \
   --host ws://127.0.0.1:7777/match
 ```
 
@@ -58,12 +60,16 @@ Useful supervisor commands in each player terminal:
 /ban <text>
 /lock
 /leave
+/lang zh
+/lang en
 ```
 
 The match opens the first intervention window after both players send
 `/ready`. `/prefer` and `/ban` add supervisor interventions. `/lock` closes the
 current window, emits final placeholder plans, executes a placeholder step, and
-opens the next window. `/leave` ends the match and saves the replay.
+opens the next window. `/leave` ends the match and saves the replay. `/lang`
+changes only the current client display language; it is not sent to the host and
+does not alter replay data.
 
 ## Replay
 

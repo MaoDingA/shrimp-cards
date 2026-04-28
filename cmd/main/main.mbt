@@ -6,17 +6,6 @@ fn log_server_reply(frame : String) -> Unit {
 }
 
 ///|
-fn updated_window_from_host_message(
-  message : @client_ws.HostMessage,
-  current : @protocol.WindowId?,
-) -> @protocol.WindowId? {
-  match message.opened_window() {
-    Some(window_id) => Some(window_id)
-    None => current
-  }
-}
-
-///|
 fn should_print_host_message(message : @client_ws.HostMessage) -> Bool {
   match message {
     EventMessage(_) => true
@@ -48,41 +37,37 @@ fn visible_host_message_summary(
 }
 
 ///|
-fn window_label(current : @protocol.WindowId?) -> String {
-  match current {
-    Some(window_id) => "\{window_id.value()}"
-    None => "waiting"
-  }
-}
-
-///|
-fn terminal_input_line(current : @protocol.WindowId?) -> String {
-  match current {
-    Some(_) => "[input] /prefer <text> | /ban <text> | /lock | /leave"
-    None => "[input] /ready | /leave"
-  }
-}
+enum TerminalWindowState {
+  Waiting
+  Open(@protocol.WindowId)
+  Locked(@protocol.WindowId)
+  Resolving(@protocol.WindowId)
+  Ended
+} derive(Eq, Debug)
 
 ///|
 struct TerminalViewState {
   viewer : @protocol.Side
   mut current_window_id : @protocol.WindowId?
+  mut window_state : TerminalWindowState
   mut ended : Bool
   mut replay_path : String
+  mut agent_plan : String
+  mut agent_reason : String
   logs : Array[String]
 } derive(Eq, Debug)
 
 ///|
 fn TerminalViewState::new(viewer : @protocol.Side) -> TerminalViewState {
-  { viewer, current_window_id: None, ended: false, replay_path: "", logs: [] }
-}
-
-///|
-fn TerminalViewState::status_label(self : TerminalViewState) -> String {
-  if self.ended {
-    "ended"
-  } else {
-    "active"
+  {
+    viewer,
+    current_window_id: None,
+    window_state: Waiting,
+    ended: false,
+    replay_path: "",
+    agent_plan: "",
+    agent_reason: "",
+    logs: [],
   }
 }
 
@@ -100,13 +85,33 @@ fn TerminalViewState::apply_host_message(
   self : TerminalViewState,
   message : @client_ws.HostMessage,
 ) -> Unit {
-  self.current_window_id = updated_window_from_host_message(
-    message,
-    self.current_window_id,
-  )
+  match message.opened_window() {
+    Some(window_id) => {
+      self.current_window_id = Some(window_id)
+      self.window_state = Open(window_id)
+    }
+    None => ()
+  }
   match message {
-    EventMessage(MatchEnded(_)) => self.ended = true
+    EventMessage(WindowLocked(window_id)) => {
+      self.current_window_id = None
+      self.window_state = Locked(window_id)
+    }
+    EventMessage(WindowExecuted(window_id)) => {
+      self.current_window_id = None
+      self.window_state = Resolving(window_id)
+    }
+    EventMessage(MatchEnded(_)) => {
+      self.ended = true
+      self.current_window_id = None
+      self.window_state = Ended
+    }
     EventMessage(ReplaySaved(path)) => self.replay_path = path
+    EventMessage(AgentPlanIssued(plan)) =>
+      if plan.side == self.viewer {
+        self.agent_plan = plan.plan
+        self.agent_reason = plan.reason
+      }
     _ => ()
   }
   match visible_host_message_summary(message, self.viewer) {
@@ -116,17 +121,11 @@ fn TerminalViewState::apply_host_message(
 }
 
 ///|
-fn TerminalViewState::screen_lines(self : TerminalViewState) -> Array[String] {
-  let lines : Array[String] = [
-    "[panel] seat \{self.viewer.label()} | window \{window_label(self.current_window_id)} | status \{self.status_label()} | replay \{self.replay_label()}",
-    "[log]",
-  ]
-  let start = if self.logs.length() > 8 { self.logs.length() - 8 } else { 0 }
-  for index in start..<self.logs.length() {
-    lines.push(self.logs[index])
-  }
-  lines.push(terminal_input_line(self.current_window_id))
-  lines
+fn TerminalViewState::screen_lines(
+  self : TerminalViewState,
+  lang : DisplayLang,
+) -> Array[String] {
+  self.v7_screen_lines(lang)
 }
 
 ///|
@@ -137,62 +136,92 @@ fn print_lines(lines : Array[String]) -> Unit {
 }
 
 ///|
-fn print_terminal_screen(state : TerminalViewState) -> Unit {
+fn print_screen_lines(lines : Array[String]) -> Unit {
   println("\u{1B}[2J\u{1B}[H")
-  print_lines(state.screen_lines())
+  print_lines(lines)
+}
+
+///|
+fn print_terminal_screen(state : TerminalViewState, lang : DisplayLang) -> Unit {
+  print_screen_lines(state.screen_lines(lang))
 }
 
 ///|
 async fn run_join(options : @cli.JoinOptions) -> Unit {
+  let mut lang = display_lang_from_code(options.lang)
+  print_screen_lines(
+    join_startup_screen_lines(
+      display_name=options.display_name,
+      host_url=options.host_url,
+      lang~,
+    ),
+  )
   let config = @client.ClientConfig::new(
     player_id=options.display_name,
     display_name=options.display_name,
     host_url=options.host_url,
   )
   let live = @client_ws.connect_live(config)
-  println(live.response.summary())
   match live.response {
     JoinAccepted(player) => {
       let terminal = TerminalViewState::new(player.side)
       let mut sequence_id = 1
-      print_terminal_screen(terminal)
+      print_terminal_screen(terminal, lang)
       @async.with_task_group(group => {
         group.spawn_bg(no_wait=true, () => {
           try {
             for ;; {
               let message = live.session.recv_message()
               terminal.apply_host_message(message)
-              print_terminal_screen(terminal)
+              print_terminal_screen(terminal, lang)
             }
           } catch {
             _ => ()
           }
         })
         while @stdio.stdin.read_until("\n") is Some(line) {
-          match
-            @client.parse_supervisor_line(
-              player.side,
-              terminal.current_window_id,
-              @protocol.SequenceId::new(sequence_id),
-              line,
-            ) {
-            Some(input) => {
-              live.session.send_input(input)
-              sequence_id += 1
-              if input is Leave(_) {
-                break
+          match parse_display_lang_command(line) {
+            Some(next_lang) => {
+              lang = next_lang
+              terminal.logs.push("language changed")
+              print_terminal_screen(terminal, lang)
+            }
+            None =>
+              match
+                @client.parse_supervisor_line(
+                  player.side,
+                  terminal.current_window_id,
+                  @protocol.SequenceId::new(sequence_id),
+                  line,
+                ) {
+                Some(input) => {
+                  live.session.send_input(input)
+                  sequence_id += 1
+                  if input is Leave(_) {
+                    break
+                  }
+                }
+                None => {
+                  terminal.logs.push("ignored input")
+                  print_terminal_screen(terminal, lang)
+                }
               }
-            }
-            None => {
-              terminal.logs.push("ignored input")
-              print_terminal_screen(terminal)
-            }
           }
         }
         live.session.close()
       })
     }
-    JoinRejected(_) => live.session.close()
+    JoinRejected(reason) => {
+      print_screen_lines(
+        join_rejected_screen_lines(
+          display_name=options.display_name,
+          host_url=options.host_url,
+          lang~,
+          reason~,
+        ),
+      )
+      live.session.close()
+    }
   }
 }
 

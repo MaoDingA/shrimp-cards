@@ -48,6 +48,26 @@ test "public server event is visible through shared filter" {
 }
 
 ///|
+test "shared event filter hides opponent agent plan" {
+  let plan = @protocol.AgentPlan::new(
+    side=@protocol.A,
+    window_id=@protocol.WindowId::new(1),
+    phase=@protocol.InitialPlan,
+    plan="A secret plan",
+    reason="private reason",
+  )
+  match visible_event_for_side(@protocol.AgentPlanIssued(plan), @protocol.B) {
+    None => ()
+    Some(_) => fail("expected opponent plan to be hidden")
+  }
+  match visible_event_for_side(@protocol.AgentPlanIssued(plan), @protocol.A) {
+    Some(@protocol.AgentPlanIssued(visible)) =>
+      assert_eq(visible.plan, "A secret plan")
+    _ => fail("expected own plan to be visible")
+  }
+}
+
+///|
 test "replay view side parser accepts player labels" {
   assert_true(side_from_view("A") == Some(@protocol.A))
   assert_true(side_from_view("B") == Some(@protocol.B))

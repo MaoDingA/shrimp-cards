@@ -31,6 +31,7 @@ pub(all) struct HostOptions {
 pub(all) struct JoinOptions {
   display_name : String
   host_url : String
+  lang : String
 } derive(Eq, @debug.Debug)
 
 pub(all) struct ReplayOptions {

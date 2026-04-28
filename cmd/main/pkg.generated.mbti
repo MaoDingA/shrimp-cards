@@ -10,7 +10,11 @@ import {
 // Errors
 
 // Types and methods
+type DisplayLang derive(Eq, @debug.Debug)
+
 type TerminalViewState derive(Eq, @debug.Debug)
+
+type TerminalWindowState derive(Eq, @debug.Debug)
 
 // Type aliases
 

@@ -12,6 +12,7 @@ pub(all) struct HostOptions {
 pub(all) struct JoinOptions {
   display_name : String
   host_url : String
+  lang : String
 } derive(Eq, Debug)
 
 ///|
@@ -82,6 +83,7 @@ pub fn parse_command(args : Array[String]) -> Command {
       Join({
         display_name: option_value(args, "--name", "Player"),
         host_url: option_value(args, "--host", "ws://127.0.0.1:7777/match"),
+        lang: option_value(args, "--lang", "zh"),
       })
     Some("replay") =>
       Replay({
@@ -98,7 +100,8 @@ pub fn Command::summary(self : Command) -> String {
   match self {
     Host(options) =>
       "host \{options.bind_host}:\{options.port} match \{options.match_id}"
-    Join(options) => "join \{options.display_name} -> \{options.host_url}"
+    Join(options) =>
+      "join \{options.display_name} -> \{options.host_url} lang \{options.lang}"
     Replay(options) =>
       "replay \{options.file} as \{options.view} mode \{options.mode}"
     Help => "usage: shrimp-cards <host|join|replay>"

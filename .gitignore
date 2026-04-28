@@ -10,8 +10,11 @@ replays/
 host.log
 
 # MoonBit build output
+_build/
 target/
 .moon/
+.mooncakes/
+.moonagent/
 
 # OS/editor noise
 .DS_Store

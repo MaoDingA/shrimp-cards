@@ -1,0 +1,34 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "MaoDingA/shrimp_cards/visibility"
+
+import {
+  "MaoDingA/shrimp_cards/protocol",
+  "MaoDingA/shrimp_cards/replay",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn view_replay_window(@replay.ReplayWindowRecord, @protocol.Side) -> PlayerWindowView
+
+// Errors
+
+// Types and methods
+pub(all) struct PlayerWindowView {
+  viewer : @protocol.Side
+  own_agent_plan : String
+  opponent_agent_plan : String?
+  public_interventions : Array[String]
+} derive(Eq, @debug.Debug)
+
+pub(all) struct WindowSecrets {
+  side_a_plan : String
+  side_b_plan : String
+  public_interventions : Array[String]
+} derive(Eq, @debug.Debug)
+pub fn WindowSecrets::new(side_a_plan~ : String, side_b_plan~ : String, public_interventions~ : Array[String]) -> Self
+pub fn WindowSecrets::view_for(Self, @protocol.Side) -> PlayerWindowView
+
+// Type aliases
+
+// Traits
+

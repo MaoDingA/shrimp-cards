@@ -1,0 +1,51 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "MaoDingA/shrimp_cards/replay"
+
+import {
+  "MaoDingA/shrimp_cards/protocol",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+}
+
+// Values
+pub let replay_format_version : Int
+
+// Errors
+
+// Types and methods
+pub(all) struct ReplayHeader {
+  match_id : String
+  created_at : String
+  seed : Int
+  protocol_version : Int
+  format_version : Int
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn ReplayHeader::is_compatible(Self) -> Bool
+pub fn ReplayHeader::new(String, String, Int, Int, Int) -> Self
+
+pub(all) struct ReplayLog {
+  header : ReplayHeader
+  players : Array[@protocol.PlayerIdentity]
+  windows : Array[ReplayWindowRecord]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn ReplayLog::can_play(Self) -> Bool
+pub fn ReplayLog::new(ReplayHeader, Array[@protocol.PlayerIdentity], Array[ReplayWindowRecord]) -> Self
+
+pub(all) struct ReplayWindowRecord {
+  window_id : @protocol.WindowId
+  sequence_id : @protocol.SequenceId
+  initial_agent_plan_a : String
+  initial_agent_plan_b : String
+  final_agent_plan_a : String
+  final_agent_plan_b : String
+  public_interventions : Array[@protocol.Intervention]
+  public_events : Array[@protocol.PublicEvent]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn ReplayWindowRecord::has_complete_agent_plans(Self) -> Bool
+pub fn ReplayWindowRecord::new(window_id~ : @protocol.WindowId, sequence_id~ : @protocol.SequenceId, initial_agent_plan_a~ : String, initial_agent_plan_b~ : String, final_agent_plan_a~ : String, final_agent_plan_b~ : String, public_interventions~ : Array[@protocol.Intervention], public_events~ : Array[@protocol.PublicEvent]) -> Self
+pub fn ReplayWindowRecord::public_event_count(Self) -> Int
+
+// Type aliases
+
+// Traits
+

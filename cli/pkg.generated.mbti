@@ -1,0 +1,41 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "MaoDingA/shrimp_cards/cli"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn parse_command(Array[String]) -> Command
+
+// Errors
+
+// Types and methods
+pub(all) enum Command {
+  Host(HostOptions)
+  Join(JoinOptions)
+  Replay(ReplayOptions)
+  Help
+} derive(Eq, @debug.Debug)
+pub fn Command::summary(Self) -> String
+
+pub(all) struct HostOptions {
+  bind_host : String
+  port : Int
+  debug : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) struct JoinOptions {
+  display_name : String
+  host_url : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ReplayOptions {
+  file : String
+  view : String
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

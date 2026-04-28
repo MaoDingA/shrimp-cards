@@ -1,0 +1,13 @@
+{
+  "name": "MaoDingA/shrimp_cards",
+  "version": "0.1.0",
+  "readme": "README.md",
+  "repository": "https://github.com/MaoDingA/shrimp-cards",
+  "license": "",
+  "keywords": [
+    "game",
+    "cards",
+    "terminal"
+  ],
+  "description": "小虾牌 (Shrimp Cards), a terminal-first MoonBit card game."
+}

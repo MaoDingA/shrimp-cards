@@ -1,0 +1,8 @@
+import {
+  "MaoDingA/shrimp_cards/cli" @cli,
+  "moonbitlang/core/env" @env,
+}
+
+options(
+  is_main: true,
+)

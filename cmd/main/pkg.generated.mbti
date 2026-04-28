@@ -1,11 +1,16 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "MaoDingA/shrimp_cards/cmd/main"
 
+import {
+  "moonbitlang/core/debug",
+}
+
 // Values
 
 // Errors
 
 // Types and methods
+type TerminalViewState derive(Eq, @debug.Debug)
 
 // Type aliases
 

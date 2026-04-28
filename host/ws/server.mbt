@@ -6,6 +6,54 @@ priv struct ClientConn {
 }
 
 ///|
+pub(all) struct HandshakeServerConfig {
+  match_id : String
+  replay_dir : String
+  seed : Int
+  created_at : String
+} derive(Eq, Debug)
+
+///|
+pub fn HandshakeServerConfig::new(
+  match_id~ : String,
+  replay_dir~ : String,
+  seed~ : Int,
+) -> HandshakeServerConfig {
+  { match_id, replay_dir, seed, created_at: "local" }
+}
+
+///|
+fn normalized_replay_dir(replay_dir : String) -> String {
+  if replay_dir.is_empty() {
+    "replays"
+  } else if replay_dir.has_suffix("/") {
+    replay_dir[:replay_dir.length() - 1].to_string()
+  } else {
+    replay_dir
+  }
+}
+
+///|
+pub fn HandshakeServerConfig::replay_path(
+  self : HandshakeServerConfig,
+) -> String {
+  "\{normalized_replay_dir(self.replay_dir)}/\{self.match_id}.json"
+}
+
+///|
+pub fn HandshakeServerConfig::replay_header(
+  self : HandshakeServerConfig,
+) -> @replay.ReplayHeader {
+  @replay.ReplayHeader::new(
+    self.match_id,
+    self.created_at,
+    self.seed,
+    @protocol.protocol_version,
+    @replay.replay_format_version,
+  )
+}
+
+///|
 async fn broadcast_events(
   clients : Array[ClientConn],
   events : Array[@protocol.ServerEvent],
@@ -47,13 +95,6 @@ fn includes_match_end(events : Array[@protocol.ServerEvent]) -> Bool {
 }
 
 ///|
-fn replay_header(match_id : String) -> @replay.ReplayHeader {
-  @replay.ReplayHeader::new(
-    match_id, "local", 0, @protocol.protocol_version, @replay.replay_format_version,
-  )
-}
-
-///|
 async fn publish_events(
   clients : Array[ClientConn],
   journal : @replay.ReplayEventJournal,
@@ -70,13 +111,13 @@ async fn publish_events(
 async fn save_replay_and_publish(
   clients : Array[ClientConn],
   journal : @replay.ReplayEventJournal,
-  replay_path : String,
-  match_id : String,
+  config : HandshakeServerConfig,
   log : (String) -> Unit,
 ) -> Unit {
+  let replay_path = config.replay_path()
   let event = @protocol.ReplaySaved(replay_path)
   ignore(journal.append(event))
-  journal.to_event_log(replay_header(match_id)).save(replay_path) catch {
+  journal.to_event_log(config.replay_header()).save(replay_path) catch {
     _ => ()
   }
   broadcast_events(clients, [event], log)
@@ -87,13 +128,12 @@ async fn publish_outcome_events(
   clients : Array[ClientConn],
   journal : @replay.ReplayEventJournal,
   events : Array[@protocol.ServerEvent],
-  replay_path : String,
-  match_id : String,
+  config : HandshakeServerConfig,
   log : (String) -> Unit,
 ) -> Unit {
   publish_events(clients, journal, events, log)
   if includes_match_end(events) {
-    save_replay_and_publish(clients, journal, replay_path, match_id, log)
+    save_replay_and_publish(clients, journal, config, log)
   }
 }
 
@@ -113,10 +153,25 @@ pub async fn run_handshake_server(
   server : @http.Server,
   log : (String) -> Unit,
 ) -> Unit {
+  run_handshake_server_with_config(
+    server,
+    HandshakeServerConfig::new(
+      match_id="match-\{server.addr.port()}",
+      replay_dir="replays",
+      seed=0,
+    ),
+    log,
+  )
+}
+
+///|
+pub async fn run_handshake_server_with_config(
+  server : @http.Server,
+  config : HandshakeServerConfig,
+  log : (String) -> Unit,
+) -> Unit {
   let session = @host.MatchSession::new()
   let journal = @replay.ReplayEventJournal::new()
-  let match_id = "match-\{server.addr.port()}"
-  let replay_path = "replays/\{match_id}.json"
   let clients : Array[ClientConn] = []
   let mut next_client_id = 1
   server.run_forever((request, _, conn) => {
@@ -147,9 +202,7 @@ pub async fn run_handshake_server(
                   Some(side) => client.side = Some(side)
                   None => ()
                 }
-                publish_outcome_events(
-                  clients, journal, events, replay_path, match_id, log,
-                )
+                publish_outcome_events(clients, journal, events, config, log)
               }
             }
           }
@@ -164,9 +217,7 @@ pub async fn run_handshake_server(
         match client.side {
           Some(side) => {
             let events = session.handle_disconnect(side)
-            publish_outcome_events(
-              clients, journal, events, replay_path, match_id, log,
-            )
+            publish_outcome_events(clients, journal, events, config, log)
           }
           None => ()
         }

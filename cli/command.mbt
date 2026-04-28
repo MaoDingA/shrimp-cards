@@ -2,6 +2,9 @@
 pub(all) struct HostOptions {
   bind_host : String
   port : Int
+  match_id : String
+  seed : Int
+  replay_dir : String
   debug : Bool
 } derive(Eq, Debug)
 
@@ -15,6 +18,7 @@ pub(all) struct JoinOptions {
 pub(all) struct ReplayOptions {
   file : String
   view : String
+  mode : String
 } derive(Eq, Debug)
 
 ///|
@@ -63,12 +67,17 @@ fn option_int(args : Array[String], flag : String, default : Int) -> Int {
 ///|
 pub fn parse_command(args : Array[String]) -> Command {
   match args.get(1) {
-    Some("host") =>
+    Some("host") => {
+      let port = option_int(args, "--port", 7777)
       Host({
         bind_host: option_value(args, "--bind", "127.0.0.1"),
-        port: option_int(args, "--port", 7777),
+        port,
+        match_id: option_value(args, "--match-id", "match-\{port}"),
+        seed: option_int(args, "--seed", 0),
+        replay_dir: option_value(args, "--replay-dir", "replays"),
         debug: has_flag(args, "--debug"),
       })
+    }
     Some("join") =>
       Join({
         display_name: option_value(args, "--name", "Player"),
@@ -78,6 +87,7 @@ pub fn parse_command(args : Array[String]) -> Command {
       Replay({
         file: option_value(args, "--file", ""),
         view: option_value(args, "--view", "A"),
+        mode: option_value(args, "--mode", "events"),
       })
     _ => Help
   }
@@ -86,9 +96,11 @@ pub fn parse_command(args : Array[String]) -> Command {
 ///|
 pub fn Command::summary(self : Command) -> String {
   match self {
-    Host(options) => "host \{options.bind_host}:\{options.port}"
+    Host(options) =>
+      "host \{options.bind_host}:\{options.port} match \{options.match_id}"
     Join(options) => "join \{options.display_name} -> \{options.host_url}"
-    Replay(options) => "replay \{options.file} as \{options.view}"
+    Replay(options) =>
+      "replay \{options.file} as \{options.view} mode \{options.mode}"
     Help => "usage: shrimp-cards <host|join|replay>"
   }
 }

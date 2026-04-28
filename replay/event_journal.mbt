@@ -5,6 +5,12 @@ pub(all) struct ReplayEventRecord {
 } derive(Eq, Debug, ToJson, FromJson)
 
 ///|
+pub(all) struct ReplayWindowGroup {
+  window_id : @protocol.WindowId
+  records : Array[ReplayEventRecord]
+} derive(Eq, Debug, ToJson, FromJson)
+
+///|
 pub struct ReplayEventLog {
   priv header : ReplayHeader
   priv events : Array[ReplayEventRecord]
@@ -29,6 +35,31 @@ pub fn ReplayEventLog::match_id(self : ReplayEventLog) -> String {
 }
 
 ///|
+pub fn ReplayEventLog::created_at(self : ReplayEventLog) -> String {
+  self.header.created_at
+}
+
+///|
+pub fn ReplayEventLog::seed(self : ReplayEventLog) -> Int {
+  self.header.seed
+}
+
+///|
+pub fn ReplayEventLog::protocol_version(self : ReplayEventLog) -> Int {
+  self.header.protocol_version
+}
+
+///|
+pub fn ReplayEventLog::format_version(self : ReplayEventLog) -> Int {
+  self.header.format_version
+}
+
+///|
+pub fn ReplayEventLog::event_count(self : ReplayEventLog) -> Int {
+  self.events.length()
+}
+
+///|
 pub fn ReplayEventLog::records_from(
   self : ReplayEventLog,
   from_event_id : Int,
@@ -40,6 +71,27 @@ pub fn ReplayEventLog::records_from(
     }
   }
   records
+}
+
+///|
+pub fn ReplayEventLog::window_groups(
+  self : ReplayEventLog,
+) -> Array[ReplayWindowGroup] {
+  let groups : Array[ReplayWindowGroup] = []
+  let mut current_group_index = -1
+  for record in self.events {
+    match record.event {
+      @protocol.InputWindowOpened(window_id) => {
+        groups.push({ window_id, records: [record] })
+        current_group_index = groups.length() - 1
+      }
+      _ =>
+        if current_group_index >= 0 {
+          groups[current_group_index].records.push(record)
+        }
+    }
+  }
+  groups
 }
 
 ///|

@@ -26,11 +26,17 @@ pub fn ReplayEventJournal::to_event_log(Self, ReplayHeader) -> ReplayEventLog
 pub struct ReplayEventLog {
   // private fields
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn ReplayEventLog::created_at(Self) -> String
+pub fn ReplayEventLog::event_count(Self) -> Int
+pub fn ReplayEventLog::format_version(Self) -> Int
 pub fn ReplayEventLog::is_compatible(Self) -> Bool
 pub fn ReplayEventLog::match_id(Self) -> String
 pub fn ReplayEventLog::new(ReplayHeader, Array[ReplayEventRecord]) -> Self
+pub fn ReplayEventLog::protocol_version(Self) -> Int
 pub fn ReplayEventLog::records_from(Self, Int) -> Array[ReplayEventRecord]
 pub async fn ReplayEventLog::save(Self, String) -> Unit
+pub fn ReplayEventLog::seed(Self) -> Int
+pub fn ReplayEventLog::window_groups(Self) -> Array[ReplayWindowGroup]
 
 pub(all) struct ReplayEventRecord {
   event_id : Int
@@ -54,6 +60,11 @@ pub(all) struct ReplayLog {
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub fn ReplayLog::can_play(Self) -> Bool
 pub fn ReplayLog::new(ReplayHeader, Array[@protocol.PlayerIdentity], Array[ReplayWindowRecord]) -> Self
+
+pub(all) struct ReplayWindowGroup {
+  window_id : @protocol.WindowId
+  records : Array[ReplayEventRecord]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 
 pub(all) struct ReplayWindowRecord {
   window_id : @protocol.WindowId

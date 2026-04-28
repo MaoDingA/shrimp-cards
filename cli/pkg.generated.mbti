@@ -22,6 +22,9 @@ pub fn Command::summary(Self) -> String
 pub(all) struct HostOptions {
   bind_host : String
   port : Int
+  match_id : String
+  seed : Int
+  replay_dir : String
   debug : Bool
 } derive(Eq, @debug.Debug)
 
@@ -33,6 +36,7 @@ pub(all) struct JoinOptions {
 pub(all) struct ReplayOptions {
   file : String
   view : String
+  mode : String
 } derive(Eq, @debug.Debug)
 
 // Type aliases

@@ -2,15 +2,28 @@
 package "MaoDingA/shrimp_cards/host/ws"
 
 import {
+  "MaoDingA/shrimp_cards/replay",
   "moonbitlang/async/http",
+  "moonbitlang/core/debug",
 }
 
 // Values
 pub async fn run_handshake_server(@http.Server, (String) -> Unit) -> Unit
 
+pub async fn run_handshake_server_with_config(@http.Server, HandshakeServerConfig, (String) -> Unit) -> Unit
+
 // Errors
 
 // Types and methods
+pub(all) struct HandshakeServerConfig {
+  match_id : String
+  replay_dir : String
+  seed : Int
+  created_at : String
+} derive(Eq, @debug.Debug)
+pub fn HandshakeServerConfig::new(match_id~ : String, replay_dir~ : String, seed~ : Int) -> Self
+pub fn HandshakeServerConfig::replay_header(Self) -> @replay.ReplayHeader
+pub fn HandshakeServerConfig::replay_path(Self) -> String
 
 // Type aliases
 

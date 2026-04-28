@@ -80,6 +80,44 @@ test "replay event journal returns public events from cursor" {
 }
 
 ///|
+test "replay event log exposes metadata and groups windows" {
+  let log = ReplayEventLog::new(
+    ReplayHeader::new(
+      "match-1", "2026-04-28T00:00:00Z", 42, @protocol.protocol_version, replay_format_version,
+    ),
+    [
+      ReplayEventRecord::{ event_id: 0, event: @protocol.MatchStarted },
+      ReplayEventRecord::{
+        event_id: 1,
+        event: @protocol.InputWindowOpened(@protocol.WindowId::new(1)),
+      },
+      ReplayEventRecord::{
+        event_id: 2,
+        event: @protocol.WindowLocked(@protocol.WindowId::new(1)),
+      },
+      ReplayEventRecord::{
+        event_id: 3,
+        event: @protocol.InputWindowOpened(@protocol.WindowId::new(2)),
+      },
+    ],
+  )
+  assert_eq(log.created_at(), "2026-04-28T00:00:00Z")
+  assert_eq(log.seed(), 42)
+  assert_eq(log.protocol_version(), @protocol.protocol_version)
+  assert_eq(log.format_version(), replay_format_version)
+  assert_eq(log.event_count(), 4)
+  match log.window_groups() {
+    [first, second] => {
+      assert_true(first.window_id == @protocol.WindowId::new(1))
+      assert_eq(first.records.length(), 2)
+      assert_true(second.window_id == @protocol.WindowId::new(2))
+      assert_eq(second.records.length(), 1)
+    }
+    _ => fail("expected two replay window groups")
+  }
+}
+
+///|
 async test "replay event log writes and loads compatible json" {
   @async.pause()
   let journal = ReplayEventJournal::new()

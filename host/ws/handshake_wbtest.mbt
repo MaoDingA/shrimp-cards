@@ -113,6 +113,19 @@ async fn recv_replay_saved_path(conn : @raw_ws.Conn) -> String? {
 }
 
 ///|
+test "websocket host config builds replay metadata" {
+  let config = HandshakeServerConfig::new(
+    match_id="local-match",
+    replay_dir="_build/custom-replays/",
+    seed=42,
+  )
+  assert_eq(config.replay_path(), "_build/custom-replays/local-match.json")
+  let header = config.replay_header()
+  assert_eq(header.match_id, "local-match")
+  assert_eq(header.seed, 42)
+}
+
+///|
 async test "websocket host broadcasts events to connected clients" {
   @async.with_task_group(group => {
     let server = @http.Server(@socket.Addr::parse("127.0.0.1:0"))

@@ -1,6 +1,6 @@
 ///|
 test "protocol exposes stable version and side labels" {
-  assert_eq(protocol_version, 1)
+  assert_eq(protocol_version, 2)
   assert_eq(A.label(), "A")
   assert_eq(B.label(), "B")
 }
@@ -66,12 +66,12 @@ test "join request carries player identity and protocol version" {
 
 ///|
 test "join request round trips wire text" {
-  let request = JoinRequest::new("player-1", "Alice")
+  let request = JoinRequest::new("player\t1", "Alice\tTabbed")
   let decoded = JoinRequest::from_wire_text(request.to_wire_text())
   match decoded {
     Some(decoded) => {
-      assert_eq(decoded.player_id, "player-1")
-      assert_eq(decoded.display_name, "Alice")
+      assert_eq(decoded.player_id, "player\t1")
+      assert_eq(decoded.display_name, "Alice\tTabbed")
       assert_true(decoded.is_compatible())
     }
     None => fail("expected join request")
@@ -80,12 +80,14 @@ test "join request round trips wire text" {
 
 ///|
 test "join response round trips accepted seat" {
-  let response = JoinAccepted(PlayerIdentity::new("player-1", "Alice", A))
+  let response = JoinAccepted(
+    PlayerIdentity::new("player\t1", "Alice\tTabbed", A),
+  )
   let decoded = JoinResponse::from_wire_text(response.to_wire_text())
   match decoded {
     Some(JoinAccepted(player)) => {
-      assert_eq(player.player_id, "player-1")
-      assert_eq(player.display_name, "Alice")
+      assert_eq(player.player_id, "player\t1")
+      assert_eq(player.display_name, "Alice\tTabbed")
       assert_true(player.side == A)
     }
     _ => fail("expected accepted response")
@@ -113,7 +115,7 @@ test "client intervention input round trips wire text" {
     window_id=WindowId::new(1),
     sequence_id=SequenceId::new(2),
     kind=SoftPreference,
-    text="/prefer defend",
+    text="/prefer defend\twith tab",
   )
   let input = SubmitIntervention(intervention)
   match ClientInput::from_wire_text(input.to_wire_text()) {
@@ -122,7 +124,7 @@ test "client intervention input round trips wire text" {
       assert_true(decoded.window_id == WindowId::new(1))
       assert_true(decoded.sequence_id == SequenceId::new(2))
       assert_true(decoded.kind == SoftPreference)
-      assert_eq(decoded.text, "/prefer defend")
+      assert_eq(decoded.text, "/prefer defend\twith tab")
     }
     _ => fail("expected intervention input")
   }
@@ -160,6 +162,15 @@ test "host input response round trips window locked acknowledgement" {
 }
 
 ///|
+test "host input rejection reason round trips escaped wire text" {
+  let response = InputRejected("bad\tinput")
+  match InputResponse::from_wire_text(response.to_wire_text()) {
+    Some(InputRejected(reason)) => assert_eq(reason, "bad\tinput")
+    _ => fail("expected rejected response")
+  }
+}
+
+///|
 test "server event round trips ready and window opened" {
   let ready = PlayerReady(A)
   match ServerEvent::from_wire_text(ready.to_wire_text()) {
@@ -181,7 +192,7 @@ test "server event round trips intervention and leave" {
     window_id=WindowId::new(2),
     sequence_id=SequenceId::new(3),
     kind=HardConstraint,
-    text="/ban strike",
+    text="/ban\tstrike",
   )
   let submitted = InterventionSubmitted(intervention)
   match ServerEvent::from_wire_text(submitted.to_wire_text()) {
@@ -190,7 +201,7 @@ test "server event round trips intervention and leave" {
       assert_true(decoded.window_id == WindowId::new(2))
       assert_true(decoded.sequence_id == SequenceId::new(3))
       assert_true(decoded.kind == HardConstraint)
-      assert_eq(decoded.text, "/ban strike")
+      assert_eq(decoded.text, "/ban\tstrike")
     }
     _ => fail("expected intervention event")
   }
@@ -208,19 +219,19 @@ test "server lifecycle events round trip wire text" {
     Some(MatchStarted) => ()
     _ => fail("expected match started event")
   }
-  let ended = MatchEnded("A left")
+  let ended = MatchEnded("A\tleft")
   match ServerEvent::from_wire_text(ended.to_wire_text()) {
-    Some(MatchEnded(reason)) => assert_eq(reason, "A left")
+    Some(MatchEnded(reason)) => assert_eq(reason, "A\tleft")
     _ => fail("expected match ended event")
   }
-  let saved = ReplaySaved("replays/match-1.json")
+  let saved = ReplaySaved("replays/match\t1.json")
   match ServerEvent::from_wire_text(saved.to_wire_text()) {
-    Some(ReplaySaved(path)) => assert_eq(path, "replays/match-1.json")
+    Some(ReplaySaved(path)) => assert_eq(path, "replays/match\t1.json")
     _ => fail("expected replay saved event")
   }
-  let error = ProtocolError("invalid input")
+  let error = ProtocolError("invalid\tinput")
   match ServerEvent::from_wire_text(error.to_wire_text()) {
-    Some(ProtocolError(reason)) => assert_eq(reason, "invalid input")
+    Some(ProtocolError(reason)) => assert_eq(reason, "invalid\tinput")
     _ => fail("expected protocol error event")
   }
   let disconnected = PlayerDisconnected(B)
@@ -236,8 +247,8 @@ test "server window and agent plan events round trip wire text" {
     side=A,
     window_id=WindowId::new(1),
     phase=InitialPlan,
-    plan="placeholder initial plan",
-    reason="no gameplay rules loaded",
+    plan="placeholder\tinitial plan",
+    reason="no gameplay\trules loaded",
   )
   let event = AgentPlanIssued(plan)
   match ServerEvent::from_wire_text(event.to_wire_text()) {
@@ -245,8 +256,8 @@ test "server window and agent plan events round trip wire text" {
       assert_true(decoded.side == A)
       assert_true(decoded.window_id == WindowId::new(1))
       assert_true(decoded.phase == InitialPlan)
-      assert_eq(decoded.plan, "placeholder initial plan")
-      assert_eq(decoded.reason, "no gameplay rules loaded")
+      assert_eq(decoded.plan, "placeholder\tinitial plan")
+      assert_eq(decoded.reason, "no gameplay\trules loaded")
     }
     _ => fail("expected agent plan event")
   }

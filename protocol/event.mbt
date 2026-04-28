@@ -30,21 +30,22 @@ pub(all) enum ServerEvent {
 pub fn ServerEvent::to_wire_text(self : ServerEvent) -> String {
   match self {
     PlayerJoined(player) =>
-      "event_joined\t\{player.player_id}\t\{player.display_name}\t\{player.side.label()}"
+      "event_joined\t\{encode_wire_field(player.player_id)}\t\{encode_wire_field(player.display_name)}\t\{player.side.label()}"
     PlayerReady(side) => "event_ready\t\{side.label()}"
     MatchStarted => "event_match_started"
     InputWindowOpened(window_id) => "event_window_opened\t\{window_id.value()}"
     InterventionSubmitted(intervention) =>
-      "event_intervention\t\{intervention.side.label()}\t\{intervention.window_id.value()}\t\{intervention.sequence_id.value()}\t\{intervention.kind.wire_label()}\t\{intervention.text}"
+      "event_intervention\t\{intervention.side.label()}\t\{intervention.window_id.value()}\t\{intervention.sequence_id.value()}\t\{intervention.kind.wire_label()}\t\{encode_wire_field(intervention.text)}"
     WindowLocked(window_id) => "event_window_locked\t\{window_id.value()}"
     AgentPlanIssued(plan) =>
-      "event_agent_plan\t\{plan.phase.wire_label()}\t\{plan.side.label()}\t\{plan.window_id.value()}\t\{plan.plan}\t\{plan.reason}"
+      "event_agent_plan\t\{plan.phase.wire_label()}\t\{plan.side.label()}\t\{plan.window_id.value()}\t\{encode_wire_field(plan.plan)}\t\{encode_wire_field(plan.reason)}"
     WindowExecuted(window_id) => "event_window_executed\t\{window_id.value()}"
     PlayerLeft(side) => "event_left\t\{side.label()}"
     PlayerDisconnected(side) => "event_disconnected\t\{side.label()}"
-    MatchEnded(reason) => "event_match_ended\t\{reason}"
-    ReplaySaved(path) => "event_replay_saved\t\{path}"
-    ProtocolError(reason) => "event_protocol_error\t\{reason}"
+    MatchEnded(reason) => "event_match_ended\t\{encode_wire_field(reason)}"
+    ReplaySaved(path) => "event_replay_saved\t\{encode_wire_field(path)}"
+    ProtocolError(reason) =>
+      "event_protocol_error\t\{encode_wire_field(reason)}"
   }
 }
 
@@ -52,10 +53,15 @@ pub fn ServerEvent::to_wire_text(self : ServerEvent) -> String {
 pub fn ServerEvent::from_wire_text(frame : String) -> ServerEvent? {
   match split_wire_text(frame) {
     ["event_joined", player_id, display_name, side_label] =>
-      match side_from_label(side_label) {
-        Some(side) =>
+      match
+        (
+          decode_wire_field(player_id),
+          decode_wire_field(display_name),
+          side_from_label(side_label),
+        ) {
+        (Some(player_id), Some(display_name), Some(side)) =>
           Some(PlayerJoined(PlayerIdentity::new(player_id, display_name, side)))
-        None => None
+        _ => None
       }
     ["event_ready", side_label] =>
       match side_from_label(side_label) {
@@ -82,8 +88,9 @@ pub fn ServerEvent::from_wire_text(frame : String) -> ServerEvent? {
           parse_version(window_raw),
           parse_version(sequence_raw),
           InterventionKind::from_wire_label(kind_label),
+          decode_wire_field(text),
         ) {
-        (Some(side), Some(window), Some(sequence), Some(kind)) =>
+        (Some(side), Some(window), Some(sequence), Some(kind), Some(text)) =>
           Some(
             InterventionSubmitted(
               Intervention::new(
@@ -108,8 +115,10 @@ pub fn ServerEvent::from_wire_text(frame : String) -> ServerEvent? {
           AgentPlanPhase::from_wire_label(phase_label),
           side_from_label(side_label),
           parse_version(window_raw),
+          decode_wire_field(plan),
+          decode_wire_field(reason),
         ) {
-        (Some(phase), Some(side), Some(window)) =>
+        (Some(phase), Some(side), Some(window), Some(plan), Some(reason)) =>
           Some(
             AgentPlanIssued(
               AgentPlan::new(
@@ -138,9 +147,21 @@ pub fn ServerEvent::from_wire_text(frame : String) -> ServerEvent? {
         Some(side) => Some(PlayerDisconnected(side))
         None => None
       }
-    ["event_match_ended", reason] => Some(MatchEnded(reason))
-    ["event_replay_saved", path] => Some(ReplaySaved(path))
-    ["event_protocol_error", reason] => Some(ProtocolError(reason))
+    ["event_match_ended", reason] =>
+      match decode_wire_field(reason) {
+        Some(reason) => Some(MatchEnded(reason))
+        None => None
+      }
+    ["event_replay_saved", path] =>
+      match decode_wire_field(path) {
+        Some(path) => Some(ReplaySaved(path))
+        None => None
+      }
+    ["event_protocol_error", reason] =>
+      match decode_wire_field(reason) {
+        Some(reason) => Some(ProtocolError(reason))
+        None => None
+      }
     _ => None
   }
 }

@@ -28,6 +28,21 @@ fn split_wire_text(frame : String) -> Array[String] {
 }
 
 ///|
+fn encode_wire_field(value : String) -> String {
+  value.to_json().stringify()
+}
+
+///|
+fn decode_wire_field(value : String) -> String? {
+  try {
+    let decoded : String = @json.from_json(@json.parse(value))
+    Some(decoded)
+  } catch {
+    _ => None
+  }
+}
+
+///|
 fn parse_version(raw : String) -> Int? {
   Some(@string.parse_int(raw)) catch {
     _ => None
@@ -36,17 +51,22 @@ fn parse_version(raw : String) -> Int? {
 
 ///|
 pub fn JoinRequest::to_wire_text(self : JoinRequest) -> String {
-  "join\t\{self.protocol_version}\t\{self.player_id}\t\{self.display_name}"
+  "join\t\{self.protocol_version}\t\{encode_wire_field(self.player_id)}\t\{encode_wire_field(self.display_name)}"
 }
 
 ///|
 pub fn JoinRequest::from_wire_text(frame : String) -> JoinRequest? {
   match split_wire_text(frame) {
     ["join", version, player_id, display_name] =>
-      match parse_version(version) {
-        Some(protocol_version) =>
+      match
+        (
+          parse_version(version),
+          decode_wire_field(player_id),
+          decode_wire_field(display_name),
+        ) {
+        (Some(protocol_version), Some(player_id), Some(display_name)) =>
           Some({ player_id, display_name, protocol_version })
-        None => None
+        _ => None
       }
     _ => None
   }
@@ -62,8 +82,8 @@ pub(all) enum JoinResponse {
 pub fn JoinResponse::to_wire_text(self : JoinResponse) -> String {
   match self {
     JoinAccepted(player) =>
-      "accepted\t\{player.player_id}\t\{player.display_name}\t\{player.side.label()}"
-    JoinRejected(reason) => "rejected\t\{reason}"
+      "accepted\t\{encode_wire_field(player.player_id)}\t\{encode_wire_field(player.display_name)}\t\{player.side.label()}"
+    JoinRejected(reason) => "rejected\t\{encode_wire_field(reason)}"
   }
 }
 
@@ -80,12 +100,21 @@ fn side_from_label(label : String) -> Side? {
 pub fn JoinResponse::from_wire_text(frame : String) -> JoinResponse? {
   match split_wire_text(frame) {
     ["accepted", player_id, display_name, side_label] =>
-      match side_from_label(side_label) {
-        Some(side) =>
+      match
+        (
+          decode_wire_field(player_id),
+          decode_wire_field(display_name),
+          side_from_label(side_label),
+        ) {
+        (Some(player_id), Some(display_name), Some(side)) =>
           Some(JoinAccepted(PlayerIdentity::new(player_id, display_name, side)))
+        _ => None
+      }
+    ["rejected", reason] =>
+      match decode_wire_field(reason) {
+        Some(reason) => Some(JoinRejected(reason))
         None => None
       }
-    ["rejected", reason] => Some(JoinRejected(reason))
     _ => None
   }
 }

@@ -1,5 +1,5 @@
 ///|
-pub let protocol_version : Int = 1
+pub let protocol_version : Int = 2
 
 ///|
 pub(all) enum Side {

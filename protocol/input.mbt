@@ -13,7 +13,7 @@ pub fn ClientInput::to_wire_text(self : ClientInput) -> String {
     Leave(side) => "leave\t\{side.label()}"
     LockWindow(side, window_id) => "lock\t\{side.label()}\t\{window_id.value()}"
     SubmitIntervention(intervention) =>
-      "intervention\t\{intervention.side.label()}\t\{intervention.window_id.value()}\t\{intervention.sequence_id.value()}\t\{intervention.kind.wire_label()}\t\{intervention.text}"
+      "intervention\t\{intervention.side.label()}\t\{intervention.window_id.value()}\t\{intervention.sequence_id.value()}\t\{intervention.kind.wire_label()}\t\{encode_wire_field(intervention.text)}"
   }
 }
 
@@ -48,8 +48,9 @@ pub fn ClientInput::from_wire_text(frame : String) -> ClientInput? {
           parse_version(window_raw),
           parse_version(sequence_raw),
           InterventionKind::from_wire_label(kind_label),
+          decode_wire_field(text),
         ) {
-        (Some(side), Some(window), Some(sequence), Some(kind)) =>
+        (Some(side), Some(window), Some(sequence), Some(kind), Some(text)) =>
           Some(
             SubmitIntervention(
               Intervention::new(
@@ -86,7 +87,7 @@ pub fn InputResponse::to_wire_text(self : InputResponse) -> String {
     MatchLeft(side) => "left\t\{side.label()}"
     InterventionAccepted(intervention) =>
       "intervention_ok\t\{intervention.side.label()}\t\{intervention.window_id.value()}\t\{intervention.sequence_id.value()}"
-    InputRejected(reason) => "rejected\t\{reason}"
+    InputRejected(reason) => "rejected\t\{encode_wire_field(reason)}"
   }
 }
 
@@ -134,7 +135,11 @@ pub fn InputResponse::from_wire_text(frame : String) -> InputResponse? {
           )
         _ => None
       }
-    ["rejected", reason] => Some(InputRejected(reason))
+    ["rejected", reason] =>
+      match decode_wire_field(reason) {
+        Some(reason) => Some(InputRejected(reason))
+        None => None
+      }
     _ => None
   }
 }

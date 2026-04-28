@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "MaoDingA/shrimp_cards/host"
+
+import {
+  "MaoDingA/shrimp_cards/protocol",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum JoinDecision {
+  Accepted(@protocol.PlayerIdentity)
+  Rejected(String)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Lobby {
+  players : Array[@protocol.PlayerIdentity]
+} derive(Eq, @debug.Debug)
+pub fn Lobby::accept_join(Self, @protocol.JoinRequest) -> JoinDecision
+pub fn Lobby::accept_join_response(Self, @protocol.JoinRequest) -> @protocol.JoinResponse
+pub fn Lobby::handle_join_frame(Self, String) -> String
+pub fn Lobby::is_ready_to_start(Self) -> Bool
+pub fn Lobby::new() -> Self
+
+// Type aliases
+
+// Traits
+

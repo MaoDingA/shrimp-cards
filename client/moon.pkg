@@ -1,0 +1,3 @@
+import {
+  "MaoDingA/shrimp_cards/protocol" @protocol,
+}

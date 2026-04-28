@@ -54,3 +54,40 @@ test "public event serializes with code and message" {
   assert_true(encoded.contains("\"code\":\"player_left\""))
   assert_true(encoded.contains("\"message\":\"A left the match\""))
 }
+
+///|
+test "join request carries player identity and protocol version" {
+  let request = JoinRequest::new("player-1", "Alice")
+  assert_eq(request.player_id, "player-1")
+  assert_eq(request.display_name, "Alice")
+  assert_eq(request.protocol_version, protocol_version)
+  assert_true(request.is_compatible())
+}
+
+///|
+test "join request round trips wire text" {
+  let request = JoinRequest::new("player-1", "Alice")
+  let decoded = JoinRequest::from_wire_text(request.to_wire_text())
+  match decoded {
+    Some(decoded) => {
+      assert_eq(decoded.player_id, "player-1")
+      assert_eq(decoded.display_name, "Alice")
+      assert_true(decoded.is_compatible())
+    }
+    None => fail("expected join request")
+  }
+}
+
+///|
+test "join response round trips accepted seat" {
+  let response = JoinAccepted(PlayerIdentity::new("player-1", "Alice", A))
+  let decoded = JoinResponse::from_wire_text(response.to_wire_text())
+  match decoded {
+    Some(JoinAccepted(player)) => {
+      assert_eq(player.player_id, "player-1")
+      assert_eq(player.display_name, "Alice")
+      assert_true(player.side == A)
+    }
+    _ => fail("expected accepted response")
+  }
+}

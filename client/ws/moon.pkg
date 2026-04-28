@@ -1,0 +1,7 @@
+import {
+  "MaoDingA/shrimp_cards/client" @client,
+  "MaoDingA/shrimp_cards/protocol" @protocol,
+  "MaoDingA/shrimp_cards/transport/websocket" @websocket,
+}
+
+supported_targets = "+native"

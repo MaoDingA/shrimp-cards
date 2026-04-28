@@ -1,17 +1,15 @@
 import {
-  "MaoDingA/shrimp_cards/client" @client,
-  "MaoDingA/shrimp_cards/client/ws" @client_ws,
-  "MaoDingA/shrimp_cards/cli" @cli,
-  "MaoDingA/shrimp_cards/host/ws" @host_ws,
-  "MaoDingA/shrimp_cards/protocol" @protocol,
-  "moonbitlang/core/env" @env,
-  "moonbitlang/async",
+  "MaoDingA/shrimp_cards/host" @host,
+  "MaoDingA/shrimp_cards/transport/websocket" @websocket,
   "moonbitlang/async/http" @http,
-  "moonbitlang/async/socket" @socket,
 }
 
-supported_targets = "+native"
+import {
+  "MaoDingA/shrimp_cards/client" @client,
+  "MaoDingA/shrimp_cards/client/ws" @client_ws,
+  "MaoDingA/shrimp_cards/protocol" @protocol,
+  "moonbitlang/async" @async,
+  "moonbitlang/async/socket" @socket,
+} for "wbtest"
 
-options(
-  is_main: true,
-)
+supported_targets = "+native"

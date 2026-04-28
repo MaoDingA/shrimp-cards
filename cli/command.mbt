@@ -72,7 +72,7 @@ pub fn parse_command(args : Array[String]) -> Command {
     Some("join") =>
       Join({
         display_name: option_value(args, "--name", "Player"),
-        host_url: option_value(args, "--host", "ws://127.0.0.1:7777"),
+        host_url: option_value(args, "--host", "ws://127.0.0.1:7777/match"),
       })
     Some("replay") =>
       Replay({

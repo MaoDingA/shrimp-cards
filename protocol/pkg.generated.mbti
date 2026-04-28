@@ -27,6 +27,24 @@ pub(all) enum InterventionKind {
   SoftPreference
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 
+pub(all) struct JoinRequest {
+  player_id : String
+  display_name : String
+  protocol_version : Int
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn JoinRequest::from_wire_text(String) -> Self?
+pub fn JoinRequest::is_compatible(Self) -> Bool
+pub fn JoinRequest::new(String, String) -> Self
+pub fn JoinRequest::to_wire_text(Self) -> String
+
+pub(all) enum JoinResponse {
+  JoinAccepted(PlayerIdentity)
+  JoinRejected(String)
+} derive(Eq, @debug.Debug)
+pub fn JoinResponse::from_wire_text(String) -> Self?
+pub fn JoinResponse::summary(Self) -> String
+pub fn JoinResponse::to_wire_text(Self) -> String
+
 pub(all) struct MatchId(String) derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub fn MatchId::new(String) -> Self
 pub fn MatchId::value(Self) -> String

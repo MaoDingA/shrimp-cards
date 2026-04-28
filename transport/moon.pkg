@@ -1,0 +1,4 @@
+import {
+  "MaoDingA/shrimp_cards/protocol" @protocol,
+  "moonbitlang/core/json",
+}

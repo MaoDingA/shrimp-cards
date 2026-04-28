@@ -32,7 +32,7 @@ test "parse join command captures display name" {
   match command {
     Join(options) => {
       assert_eq(options.display_name, "Alice")
-      assert_eq(options.host_url, "ws://127.0.0.1:7777")
+      assert_eq(options.host_url, "ws://127.0.0.1:7777/match")
     }
     _ => fail("expected join command")
   }

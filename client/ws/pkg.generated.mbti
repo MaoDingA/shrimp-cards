@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "MaoDingA/shrimp_cards/client/ws"
+
+import {
+  "MaoDingA/shrimp_cards/client",
+  "MaoDingA/shrimp_cards/protocol",
+}
+
+// Values
+pub async fn join_once(@client.ClientConfig) -> @protocol.JoinResponse
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

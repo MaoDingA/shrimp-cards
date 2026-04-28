@@ -1,0 +1,49 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "MaoDingA/shrimp_cards/transport"
+
+import {
+  "MaoDingA/shrimp_cards/protocol",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct Endpoint {
+  bind_host : String
+  port : Int
+} derive(Eq, @debug.Debug)
+pub fn Endpoint::http_url(Self, String) -> String
+pub fn Endpoint::localhost(Int) -> Self
+pub fn Endpoint::new(String, Int) -> Self
+pub fn Endpoint::ws_url(Self, String) -> String
+
+pub(all) enum MessageKind {
+  ClientJoin
+  ClientReady
+  ClientLeave
+  ClientIntervention
+  ServerAccepted
+  ServerRejected
+  ServerEvent
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct TransportEnvelope {
+  protocol_version : Int
+  match_id : String
+  window_id : @protocol.WindowId?
+  sequence_id : @protocol.SequenceId
+  kind : MessageKind
+  payload : String
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn TransportEnvelope::is_compatible(Self) -> Bool
+pub fn TransportEnvelope::is_for_window(Self, @protocol.WindowId) -> Bool
+pub fn TransportEnvelope::new(match_id~ : String, window_id~ : @protocol.WindowId?, sequence_id~ : @protocol.SequenceId, kind~ : MessageKind, payload~ : String) -> Self
+
+// Type aliases
+
+// Traits
+

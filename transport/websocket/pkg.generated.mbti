@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "MaoDingA/shrimp_cards/transport/websocket"
+
+import {
+  "moonbitlang/async/http",
+}
+
+// Values
+pub async fn run_text_server(@http.Server, async (String) -> String) -> Unit
+
+pub async fn send_text_once(String, String) -> String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

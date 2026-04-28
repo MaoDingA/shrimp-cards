@@ -4,10 +4,19 @@
 # Local planning notes
 TODO.md
 docs/superpowers/specs/
+docs/superpowers/plans/
+.superpowers/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
 
 # Local match output
 replays/
 host.log
+*.log
+*.pid
 
 # MoonBit build output
 _build/

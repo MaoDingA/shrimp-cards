@@ -67,6 +67,23 @@ test "client parses intervention terminal lines when window is open" {
 }
 
 ///|
+test "client parses lock terminal line when window is open" {
+  match
+    parse_supervisor_line(
+      @protocol.A,
+      Some(@protocol.WindowId::new(2)),
+      @protocol.SequenceId::new(3),
+      "/lock",
+    ) {
+    Some(@protocol.LockWindow(side, window_id)) => {
+      assert_true(side == @protocol.A)
+      assert_true(window_id == @protocol.WindowId::new(2))
+    }
+    _ => fail("expected lock window input")
+  }
+}
+
+///|
 test "client rejects intervention terminal line without open window" {
   match
     parse_supervisor_line(
@@ -77,5 +94,19 @@ test "client rejects intervention terminal line without open window" {
     ) {
     None => ()
     _ => fail("expected no input without open window")
+  }
+}
+
+///|
+test "client rejects lock terminal line without open window" {
+  match
+    parse_supervisor_line(
+      @protocol.A,
+      None,
+      @protocol.SequenceId::new(1),
+      "/lock",
+    ) {
+    None => ()
+    _ => fail("expected no lock input without open window")
   }
 }

@@ -32,6 +32,35 @@ test "player host event summary uses visibility filter" {
 }
 
 ///|
+test "terminal panel lines show seat window and input area" {
+  assert_eq(terminal_panel_lines(@protocol.A, None), [
+    "[panel] seat A window waiting", "[input] /ready | /leave",
+  ])
+  assert_eq(
+    terminal_panel_lines(@protocol.B, Some(@protocol.WindowId::new(2))),
+    [
+      "[panel] seat B window 2", "[input] /prefer <text> | /ban <text> | /lock | /leave",
+    ],
+  )
+}
+
+///|
+test "terminal host message lines include log and refreshed panel" {
+  assert_eq(
+    terminal_host_message_lines(
+      @client_ws.EventMessage(
+        @protocol.InputWindowOpened(@protocol.WindowId::new(3)),
+      ),
+      @protocol.A,
+      Some(@protocol.WindowId::new(3)),
+    ),
+    [
+      "[log] event window 3 opened", "[panel] seat A window 3", "[input] /prefer <text> | /ban <text> | /lock | /leave",
+    ],
+  )
+}
+
+///|
 test "replay command formats event stream lines" {
   let log = @replay.ReplayEventLog::new(
     @replay.ReplayHeader::new(

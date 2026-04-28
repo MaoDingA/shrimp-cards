@@ -153,11 +153,21 @@ test "match session emits ready then window opened events" {
   }
   match
     session.handle_frame_events(@protocol.Ready(@protocol.B).to_wire_text()) {
-    [@protocol.PlayerReady(side), @protocol.InputWindowOpened(window_id)] => {
+    [
+      @protocol.PlayerReady(side),
+      @protocol.MatchStarted,
+      @protocol.InputWindowOpened(window_id),
+      @protocol.AgentPlanIssued(plan_a),
+      @protocol.AgentPlanIssued(plan_b),
+    ] => {
       assert_true(side == @protocol.B)
       assert_true(window_id == @protocol.WindowId::new(1))
+      assert_true(plan_a.side == @protocol.A)
+      assert_true(plan_a.phase == @protocol.InitialPlan)
+      assert_true(plan_b.side == @protocol.B)
+      assert_true(plan_b.phase == @protocol.InitialPlan)
     }
-    _ => fail("expected B ready and window opened events")
+    _ => fail("expected B ready, match started, window and initial plans")
   }
 }
 
@@ -197,7 +207,155 @@ test "match session emits intervention and leave events" {
   }
   match
     session.handle_frame_events(@protocol.Leave(@protocol.B).to_wire_text()) {
-    [@protocol.PlayerLeft(side)] => assert_true(side == @protocol.B)
-    _ => fail("expected leave event")
+    [@protocol.PlayerLeft(side), @protocol.MatchEnded(reason)] => {
+      assert_true(side == @protocol.B)
+      assert_eq(reason, "B left")
+    }
+    _ => fail("expected leave and match ended events")
+  }
+}
+
+///|
+test "match session emits protocol error for invalid frame" {
+  let session = MatchSession::new()
+  let outcome = session.handle_frame_outcome("not a protocol frame")
+  match @protocol.InputResponse::from_wire_text(outcome.reply_text()) {
+    Some(@protocol.InputRejected(reason)) => assert_eq(reason, "invalid input")
+    _ => fail("expected invalid input response")
+  }
+  match outcome.server_events() {
+    [@protocol.ProtocolError(reason)] => assert_eq(reason, "invalid input")
+    _ => fail("expected public protocol error event")
+  }
+}
+
+///|
+test "match session ends on player disconnect after start" {
+  let session = MatchSession::new()
+  ignore(
+    session.handle_frame_events(
+      @protocol.JoinRequest::new("p1", "Alice").to_wire_text(),
+    ),
+  )
+  ignore(
+    session.handle_frame_events(
+      @protocol.JoinRequest::new("p2", "Bob").to_wire_text(),
+    ),
+  )
+  ignore(
+    session.handle_frame_events(@protocol.Ready(@protocol.A).to_wire_text()),
+  )
+  ignore(
+    session.handle_frame_events(@protocol.Ready(@protocol.B).to_wire_text()),
+  )
+  match session.handle_disconnect(@protocol.A) {
+    [@protocol.PlayerDisconnected(side), @protocol.MatchEnded(reason)] => {
+      assert_true(side == @protocol.A)
+      assert_eq(reason, "A disconnected")
+    }
+    _ => fail("expected disconnect and match ended events")
+  }
+  match session.handle_disconnect(@protocol.A) {
+    [] => ()
+    _ => fail("expected duplicate disconnect to be ignored")
+  }
+}
+
+///|
+test "match session locks window executes placeholder and opens next window" {
+  let session = MatchSession::new()
+  ignore(
+    session.handle_frame_events(
+      @protocol.JoinRequest::new("p1", "Alice").to_wire_text(),
+    ),
+  )
+  ignore(
+    session.handle_frame_events(
+      @protocol.JoinRequest::new("p2", "Bob").to_wire_text(),
+    ),
+  )
+  ignore(
+    session.handle_frame_events(@protocol.Ready(@protocol.A).to_wire_text()),
+  )
+  ignore(
+    session.handle_frame_events(@protocol.Ready(@protocol.B).to_wire_text()),
+  )
+  let intervention = @protocol.Intervention::new(
+    side=@protocol.A,
+    window_id=@protocol.WindowId::new(1),
+    sequence_id=@protocol.SequenceId::new(1),
+    kind=@protocol.SoftPreference,
+    text="/prefer defend",
+  )
+  ignore(
+    session.handle_frame_events(
+      @protocol.SubmitIntervention(intervention).to_wire_text(),
+    ),
+  )
+  match session.lock_current_window() {
+    [
+      @protocol.WindowLocked(locked),
+      @protocol.AgentPlanIssued(final_a),
+      @protocol.AgentPlanIssued(final_b),
+      @protocol.WindowExecuted(executed),
+      @protocol.InputWindowOpened(next),
+      @protocol.AgentPlanIssued(initial_a),
+      @protocol.AgentPlanIssued(initial_b),
+    ] => {
+      assert_true(locked == @protocol.WindowId::new(1))
+      assert_true(final_a.side == @protocol.A)
+      assert_true(final_a.phase == @protocol.FinalPlan)
+      assert_true(final_b.side == @protocol.B)
+      assert_true(final_b.phase == @protocol.FinalPlan)
+      assert_true(executed == @protocol.WindowId::new(1))
+      assert_true(next == @protocol.WindowId::new(2))
+      assert_true(initial_a.phase == @protocol.InitialPlan)
+      assert_true(initial_b.phase == @protocol.InitialPlan)
+    }
+    _ => fail("expected lock, final plans, execution and next window")
+  }
+}
+
+///|
+test "match session handles lock input for current window" {
+  let session = MatchSession::new()
+  ignore(
+    session.handle_frame_events(
+      @protocol.JoinRequest::new("p1", "Alice").to_wire_text(),
+    ),
+  )
+  ignore(
+    session.handle_frame_events(
+      @protocol.JoinRequest::new("p2", "Bob").to_wire_text(),
+    ),
+  )
+  ignore(
+    session.handle_frame_events(@protocol.Ready(@protocol.A).to_wire_text()),
+  )
+  ignore(
+    session.handle_frame_events(@protocol.Ready(@protocol.B).to_wire_text()),
+  )
+  let reply = session.handle_frame(
+    @protocol.LockWindow(@protocol.A, @protocol.WindowId::new(1)).to_wire_text(),
+  )
+  match @protocol.InputResponse::from_wire_text(reply) {
+    Some(@protocol.WindowLockedAck(window_id)) =>
+      assert_true(window_id == @protocol.WindowId::new(1))
+    _ => fail("expected window lock acknowledgement")
+  }
+  let stale = @protocol.Intervention::new(
+    side=@protocol.B,
+    window_id=@protocol.WindowId::new(1),
+    sequence_id=@protocol.SequenceId::new(2),
+    kind=@protocol.SoftPreference,
+    text="/prefer wait",
+  )
+  match
+    @protocol.InputResponse::from_wire_text(
+      session.handle_frame(@protocol.SubmitIntervention(stale).to_wire_text()),
+    ) {
+    Some(@protocol.InputRejected(reason)) =>
+      assert_eq(reason, "stale input window")
+    _ => fail("expected stale intervention after lock")
   }
 }

@@ -104,6 +104,15 @@ async fn recv_next_event(conn : @raw_ws.Conn) -> @protocol.ServerEvent {
 }
 
 ///|
+async fn recv_replay_saved_path(conn : @raw_ws.Conn) -> String? {
+  match recv_event(conn) {
+    Some(@protocol.ReplaySaved(path)) => Some(path)
+    Some(_) => recv_replay_saved_path(conn)
+    None => None
+  }
+}
+
+///|
 async test "websocket host broadcasts events to connected clients" {
   @async.with_task_group(group => {
     let server = @http.Server(@socket.Addr::parse("127.0.0.1:0"))
@@ -157,6 +166,10 @@ async test "websocket host broadcasts events to connected clients" {
       _ => fail("expected Bob ready event for Alice")
     }
     match recv_event(alice) {
+      Some(@protocol.MatchStarted) => ()
+      _ => fail("expected match started event for Alice")
+    }
+    match recv_event(alice) {
       Some(@protocol.InputWindowOpened(window_id)) =>
         assert_true(window_id == @protocol.WindowId::new(1))
       _ => fail("expected window event for Alice")
@@ -164,6 +177,10 @@ async test "websocket host broadcasts events to connected clients" {
     match recv_event(bob) {
       Some(@protocol.PlayerReady(side)) => assert_true(side == @protocol.B)
       _ => fail("expected Bob ready event for Bob")
+    }
+    match recv_event(bob) {
+      Some(@protocol.MatchStarted) => ()
+      _ => fail("expected match started event for Bob")
     }
     match recv_event(bob) {
       Some(@protocol.InputWindowOpened(window_id)) =>
@@ -204,6 +221,61 @@ async test "websocket host replays subscribed events from cursor" {
     match recv_event(watcher) {
       Some(@protocol.PlayerReady(side)) => assert_true(side == @protocol.A)
       _ => fail("expected live ready event for watcher")
+    }
+  })
+}
+
+///|
+async test "websocket host saves replay when player leaves" {
+  @async.with_task_group(group => {
+    let server = @http.Server(@socket.Addr::parse("127.0.0.1:0"))
+    let addr = server.addr
+    group.spawn_bg(no_wait=true, () => run_handshake_server(server, _ => ()))
+    @async.sleep(50)
+    let url = "ws://localhost:\{addr.port()}/match"
+    let alice = @raw_ws.connect(url)
+    defer alice.close()
+    alice.send_text(@protocol.JoinRequest::new("p1", "Alice").to_wire_text())
+    ignore(recv_join(alice))
+    ignore(recv_event(alice))
+    let bob = @raw_ws.connect(url)
+    defer bob.close()
+    bob.send_text(@protocol.JoinRequest::new("p2", "Bob").to_wire_text())
+    ignore(recv_join(bob))
+    ignore(recv_event(alice))
+    ignore(recv_event(bob))
+    alice.send_text(@protocol.Ready(@protocol.A).to_wire_text())
+    ignore(recv_event(alice))
+    ignore(recv_event(bob))
+    bob.send_text(@protocol.Ready(@protocol.B).to_wire_text())
+    ignore(recv_event(alice))
+    ignore(recv_event(alice))
+    ignore(recv_event(alice))
+    ignore(recv_event(alice))
+    ignore(recv_event(alice))
+    alice.send_text(@protocol.Leave(@protocol.A).to_wire_text())
+    match recv_replay_saved_path(bob) {
+      Some(path) =>
+        match @replay.load_event_log(path) {
+          Some(log) => {
+            @fs.remove(path) catch {
+              _ => ()
+            }
+            let records = log.records_from(0)
+            assert_true(records.length() > 0)
+            match records.get(records.length() - 1) {
+              Some(record) =>
+                match record.event {
+                  @protocol.ReplaySaved(saved) => assert_eq(saved, path)
+                  _ =>
+                    fail("expected saved replay to include replay saved event")
+                }
+              None => fail("expected replay records")
+            }
+          }
+          None => fail("expected saved replay event log")
+        }
+      None => fail("expected replay saved event")
     }
   })
 }

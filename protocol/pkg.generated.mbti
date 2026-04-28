@@ -12,9 +12,26 @@ pub let protocol_version : Int
 // Errors
 
 // Types and methods
+pub(all) struct AgentPlan {
+  side : Side
+  window_id : WindowId
+  phase : AgentPlanPhase
+  plan : String
+  reason : String
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn AgentPlan::new(side~ : Side, window_id~ : WindowId, phase~ : AgentPlanPhase, plan~ : String, reason~ : String) -> Self
+
+pub(all) enum AgentPlanPhase {
+  InitialPlan
+  FinalPlan
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn AgentPlanPhase::from_wire_label(String) -> Self?
+pub fn AgentPlanPhase::wire_label(Self) -> String
+
 pub(all) enum ClientInput {
   Ready(Side)
   Leave(Side)
+  LockWindow(Side, WindowId)
   SubmitIntervention(Intervention)
 } derive(Eq, @debug.Debug)
 pub fn ClientInput::from_wire_text(String) -> Self?
@@ -31,6 +48,7 @@ pub fn EventSubscription::to_wire_text(Self) -> String
 pub(all) enum InputResponse {
   ReadyAccepted(Side)
   WindowOpened(WindowId)
+  WindowLockedAck(WindowId)
   MatchLeft(Side)
   InterventionAccepted(Intervention)
   InputRejected(String)
@@ -99,9 +117,17 @@ pub fn SequenceId::value(Self) -> Int
 pub(all) enum ServerEvent {
   PlayerJoined(PlayerIdentity)
   PlayerReady(Side)
+  MatchStarted
   InputWindowOpened(WindowId)
   InterventionSubmitted(Intervention)
+  WindowLocked(WindowId)
+  AgentPlanIssued(AgentPlan)
+  WindowExecuted(WindowId)
   PlayerLeft(Side)
+  PlayerDisconnected(Side)
+  MatchEnded(String)
+  ReplaySaved(String)
+  ProtocolError(String)
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub fn ServerEvent::from_wire_text(String) -> Self?
 pub fn ServerEvent::summary(Self) -> String

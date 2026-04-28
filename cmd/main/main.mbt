@@ -48,6 +48,75 @@ fn visible_host_message_summary(
 }
 
 ///|
+fn window_label(current : @protocol.WindowId?) -> String {
+  match current {
+    Some(window_id) => "\{window_id.value()}"
+    None => "waiting"
+  }
+}
+
+///|
+fn terminal_input_line(current : @protocol.WindowId?) -> String {
+  match current {
+    Some(_) => "[input] /prefer <text> | /ban <text> | /lock | /leave"
+    None => "[input] /ready | /leave"
+  }
+}
+
+///|
+fn terminal_panel_lines(
+  viewer : @protocol.Side,
+  current : @protocol.WindowId?,
+) -> Array[String] {
+  [
+    "[panel] seat \{viewer.label()} window \{window_label(current)}",
+    terminal_input_line(current),
+  ]
+}
+
+///|
+fn should_refresh_panel(message : @client_ws.HostMessage) -> Bool {
+  match message {
+    EventMessage(InputWindowOpened(_)) => true
+    EventMessage(WindowLocked(_)) => true
+    EventMessage(WindowExecuted(_)) => true
+    EventMessage(MatchStarted) => true
+    EventMessage(MatchEnded(_)) => true
+    EventMessage(ReplaySaved(_)) => true
+    InputMessage(WindowOpened(_)) => true
+    InputMessage(WindowLockedAck(_)) => true
+    InputMessage(MatchLeft(_)) => true
+    _ => false
+  }
+}
+
+///|
+fn terminal_host_message_lines(
+  message : @client_ws.HostMessage,
+  viewer : @protocol.Side,
+  current : @protocol.WindowId?,
+) -> Array[String] {
+  let lines : Array[String] = []
+  match visible_host_message_summary(message, viewer) {
+    Some(summary) => lines.push("[log] \{summary}")
+    None => ()
+  }
+  if should_refresh_panel(message) {
+    for line in terminal_panel_lines(viewer, current) {
+      lines.push(line)
+    }
+  }
+  lines
+}
+
+///|
+fn print_lines(lines : Array[String]) -> Unit {
+  for line in lines {
+    println(line)
+  }
+}
+
+///|
 async fn run_join(options : @cli.JoinOptions) -> Unit {
   let config = @client.ClientConfig::new(
     player_id=options.display_name,
@@ -60,6 +129,7 @@ async fn run_join(options : @cli.JoinOptions) -> Unit {
     JoinAccepted(player) => {
       let mut current_window_id : @protocol.WindowId? = None
       let mut sequence_id = 1
+      print_lines(terminal_panel_lines(player.side, current_window_id))
       @async.with_task_group(group => {
         group.spawn_bg(no_wait=true, () => {
           try {
@@ -68,10 +138,13 @@ async fn run_join(options : @cli.JoinOptions) -> Unit {
               current_window_id = updated_window_from_host_message(
                 message, current_window_id,
               )
-              match visible_host_message_summary(message, player.side) {
-                Some(summary) => println(summary)
-                None => ()
-              }
+              print_lines(
+                terminal_host_message_lines(
+                  message,
+                  player.side,
+                  current_window_id,
+                ),
+              )
             }
           } catch {
             _ => ()

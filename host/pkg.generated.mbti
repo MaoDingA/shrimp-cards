@@ -37,12 +37,17 @@ pub(all) struct MatchSession {
   lobby : Lobby
   mut side_a_ready : Bool
   mut side_b_ready : Bool
+  mut started : Bool
+  mut ended : Bool
   mut current_window_id : @protocol.WindowId?
+  mut current_interventions : Array[@protocol.Intervention]
 } derive(Eq, @debug.Debug)
+pub fn MatchSession::handle_disconnect(Self, @protocol.Side) -> Array[@protocol.ServerEvent]
 pub fn MatchSession::handle_frame(Self, String) -> String
 pub fn MatchSession::handle_frame_events(Self, String) -> Array[@protocol.ServerEvent]
 pub fn MatchSession::handle_frame_outcome(Self, String) -> FrameOutcome
 pub fn MatchSession::handle_input(Self, @protocol.ClientInput) -> @protocol.InputResponse
+pub fn MatchSession::lock_current_window(Self) -> Array[@protocol.ServerEvent]
 pub fn MatchSession::new() -> Self
 
 // Type aliases

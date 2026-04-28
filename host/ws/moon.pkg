@@ -12,6 +12,7 @@ import {
   "MaoDingA/shrimp_cards/protocol" @protocol,
   "MaoDingA/shrimp_cards/transport/websocket" @websocket,
   "moonbitlang/async" @async,
+  "moonbitlang/async/fs" @fs,
   "moonbitlang/async/socket" @socket,
   "moonbitlang/async/websocket" @raw_ws,
 } for "wbtest"

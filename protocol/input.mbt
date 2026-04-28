@@ -2,6 +2,7 @@
 pub(all) enum ClientInput {
   Ready(Side)
   Leave(Side)
+  LockWindow(Side, WindowId)
   SubmitIntervention(Intervention)
 } derive(Eq, Debug)
 
@@ -10,6 +11,7 @@ pub fn ClientInput::to_wire_text(self : ClientInput) -> String {
   match self {
     Ready(side) => "ready\t\{side.label()}"
     Leave(side) => "leave\t\{side.label()}"
+    LockWindow(side, window_id) => "lock\t\{side.label()}\t\{window_id.value()}"
     SubmitIntervention(intervention) =>
       "intervention\t\{intervention.side.label()}\t\{intervention.window_id.value()}\t\{intervention.sequence_id.value()}\t\{intervention.kind.wire_label()}\t\{intervention.text}"
   }
@@ -32,6 +34,12 @@ pub fn ClientInput::from_wire_text(frame : String) -> ClientInput? {
       match parse_side(side_label) {
         Some(side) => Some(Leave(side))
         None => None
+      }
+    ["lock", side_label, window_raw] =>
+      match (parse_side(side_label), parse_version(window_raw)) {
+        (Some(side), Some(window)) =>
+          Some(LockWindow(side, WindowId::new(window)))
+        _ => None
       }
     ["intervention", side_label, window_raw, sequence_raw, kind_label, text] =>
       match
@@ -63,6 +71,7 @@ pub fn ClientInput::from_wire_text(frame : String) -> ClientInput? {
 pub(all) enum InputResponse {
   ReadyAccepted(Side)
   WindowOpened(WindowId)
+  WindowLockedAck(WindowId)
   MatchLeft(Side)
   InterventionAccepted(Intervention)
   InputRejected(String)
@@ -73,6 +82,7 @@ pub fn InputResponse::to_wire_text(self : InputResponse) -> String {
   match self {
     ReadyAccepted(side) => "ready_ok\t\{side.label()}"
     WindowOpened(window_id) => "window_open\t\{window_id.value()}"
+    WindowLockedAck(window_id) => "lock_ok\t\{window_id.value()}"
     MatchLeft(side) => "left\t\{side.label()}"
     InterventionAccepted(intervention) =>
       "intervention_ok\t\{intervention.side.label()}\t\{intervention.window_id.value()}\t\{intervention.sequence_id.value()}"
@@ -91,6 +101,11 @@ pub fn InputResponse::from_wire_text(frame : String) -> InputResponse? {
     ["window_open", window_raw] =>
       match parse_version(window_raw) {
         Some(window) => Some(WindowOpened(WindowId::new(window)))
+        None => None
+      }
+    ["lock_ok", window_raw] =>
+      match parse_version(window_raw) {
+        Some(window) => Some(WindowLockedAck(WindowId::new(window)))
         None => None
       }
     ["left", side_label] =>
@@ -129,6 +144,7 @@ pub fn InputResponse::summary(self : InputResponse) -> String {
   match self {
     ReadyAccepted(side) => "\{side.label()} ready"
     WindowOpened(window_id) => "window \{window_id.value()} opened"
+    WindowLockedAck(window_id) => "window \{window_id.value()} locked"
     MatchLeft(side) => "\{side.label()} left"
     InterventionAccepted(intervention) =>
       "intervention accepted for \{intervention.side.label()}"

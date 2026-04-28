@@ -129,11 +129,33 @@ test "client intervention input round trips wire text" {
 }
 
 ///|
+test "client lock window input round trips wire text" {
+  let input = LockWindow(A, WindowId::new(2))
+  match ClientInput::from_wire_text(input.to_wire_text()) {
+    Some(LockWindow(side, window_id)) => {
+      assert_true(side == A)
+      assert_true(window_id == WindowId::new(2))
+    }
+    _ => fail("expected lock window input")
+  }
+}
+
+///|
 test "host input response round trips window opened" {
   let response = WindowOpened(WindowId::new(1))
   match InputResponse::from_wire_text(response.to_wire_text()) {
     Some(WindowOpened(window_id)) => assert_true(window_id == WindowId::new(1))
     _ => fail("expected window opened response")
+  }
+}
+
+///|
+test "host input response round trips window locked acknowledgement" {
+  let response = WindowLockedAck(WindowId::new(1))
+  match InputResponse::from_wire_text(response.to_wire_text()) {
+    Some(WindowLockedAck(window_id)) =>
+      assert_true(window_id == WindowId::new(1))
+    _ => fail("expected window locked acknowledgement")
   }
 }
 
@@ -176,6 +198,68 @@ test "server event round trips intervention and leave" {
   match ServerEvent::from_wire_text(left.to_wire_text()) {
     Some(PlayerLeft(side)) => assert_true(side == A)
     _ => fail("expected leave event")
+  }
+}
+
+///|
+test "server lifecycle events round trip wire text" {
+  let started = MatchStarted
+  match ServerEvent::from_wire_text(started.to_wire_text()) {
+    Some(MatchStarted) => ()
+    _ => fail("expected match started event")
+  }
+  let ended = MatchEnded("A left")
+  match ServerEvent::from_wire_text(ended.to_wire_text()) {
+    Some(MatchEnded(reason)) => assert_eq(reason, "A left")
+    _ => fail("expected match ended event")
+  }
+  let saved = ReplaySaved("replays/match-1.json")
+  match ServerEvent::from_wire_text(saved.to_wire_text()) {
+    Some(ReplaySaved(path)) => assert_eq(path, "replays/match-1.json")
+    _ => fail("expected replay saved event")
+  }
+  let error = ProtocolError("invalid input")
+  match ServerEvent::from_wire_text(error.to_wire_text()) {
+    Some(ProtocolError(reason)) => assert_eq(reason, "invalid input")
+    _ => fail("expected protocol error event")
+  }
+  let disconnected = PlayerDisconnected(B)
+  match ServerEvent::from_wire_text(disconnected.to_wire_text()) {
+    Some(PlayerDisconnected(side)) => assert_true(side == B)
+    _ => fail("expected disconnected event")
+  }
+}
+
+///|
+test "server window and agent plan events round trip wire text" {
+  let plan = AgentPlan::new(
+    side=A,
+    window_id=WindowId::new(1),
+    phase=InitialPlan,
+    plan="placeholder initial plan",
+    reason="no gameplay rules loaded",
+  )
+  let event = AgentPlanIssued(plan)
+  match ServerEvent::from_wire_text(event.to_wire_text()) {
+    Some(AgentPlanIssued(decoded)) => {
+      assert_true(decoded.side == A)
+      assert_true(decoded.window_id == WindowId::new(1))
+      assert_true(decoded.phase == InitialPlan)
+      assert_eq(decoded.plan, "placeholder initial plan")
+      assert_eq(decoded.reason, "no gameplay rules loaded")
+    }
+    _ => fail("expected agent plan event")
+  }
+  let locked = WindowLocked(WindowId::new(1))
+  match ServerEvent::from_wire_text(locked.to_wire_text()) {
+    Some(WindowLocked(window_id)) => assert_true(window_id == WindowId::new(1))
+    _ => fail("expected window locked event")
+  }
+  let executed = WindowExecuted(WindowId::new(1))
+  match ServerEvent::from_wire_text(executed.to_wire_text()) {
+    Some(WindowExecuted(window_id)) =>
+      assert_true(window_id == WindowId::new(1))
+    _ => fail("expected window executed event")
   }
 }
 

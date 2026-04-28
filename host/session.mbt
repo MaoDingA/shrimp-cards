@@ -3,7 +3,10 @@ pub(all) struct MatchSession {
   lobby : Lobby
   mut side_a_ready : Bool
   mut side_b_ready : Bool
+  mut started : Bool
+  mut ended : Bool
   mut current_window_id : @protocol.WindowId?
+  mut current_interventions : Array[@protocol.Intervention]
 } derive(Eq, Debug)
 
 ///|
@@ -12,7 +15,10 @@ pub fn MatchSession::new() -> MatchSession {
     lobby: Lobby::new(),
     side_a_ready: false,
     side_b_ready: false,
+    started: false,
+    ended: false,
     current_window_id: None,
+    current_interventions: [],
   }
 }
 
@@ -49,6 +55,79 @@ fn MatchSession::next_window(self : MatchSession) -> @protocol.WindowId {
 }
 
 ///|
+fn placeholder_plan(
+  side : @protocol.Side,
+  window_id : @protocol.WindowId,
+  phase : @protocol.AgentPlanPhase,
+  intervention_count : Int,
+) -> @protocol.AgentPlan {
+  match phase {
+    @protocol.InitialPlan =>
+      @protocol.AgentPlan::new(
+        side~,
+        window_id~,
+        phase~,
+        plan="hold placeholder action",
+        reason="no gameplay rules loaded",
+      )
+    @protocol.FinalPlan =>
+      @protocol.AgentPlan::new(
+        side~,
+        window_id~,
+        phase~,
+        plan="execute placeholder action",
+        reason="\{intervention_count} supervisor interventions collected",
+      )
+  }
+}
+
+///|
+fn agent_plan_events(
+  window_id : @protocol.WindowId,
+  phase : @protocol.AgentPlanPhase,
+  intervention_count : Int,
+) -> Array[@protocol.ServerEvent] {
+  [
+    @protocol.AgentPlanIssued(
+      placeholder_plan(@protocol.A, window_id, phase, intervention_count),
+    ),
+    @protocol.AgentPlanIssued(
+      placeholder_plan(@protocol.B, window_id, phase, intervention_count),
+    ),
+  ]
+}
+
+///|
+fn MatchSession::open_window_events(
+  self : MatchSession,
+  window_id : @protocol.WindowId,
+) -> Array[@protocol.ServerEvent] {
+  self.current_window_id = Some(window_id)
+  self.current_interventions = []
+  let events : Array[@protocol.ServerEvent] = [
+    @protocol.InputWindowOpened(window_id),
+  ]
+  for event in agent_plan_events(window_id, @protocol.InitialPlan, 0) {
+    events.push(event)
+  }
+  events
+}
+
+///|
+fn MatchSession::finish_match_events(
+  self : MatchSession,
+  reason : String,
+) -> Array[@protocol.ServerEvent] {
+  if self.ended {
+    []
+  } else {
+    self.ended = true
+    self.current_window_id = None
+    [@protocol.MatchEnded(reason)]
+  }
+}
+
+///|
 struct InputOutcome {
   response : @protocol.InputResponse
   events : Array[@protocol.ServerEvent]
@@ -78,15 +157,22 @@ fn MatchSession::handle_ready_outcome(
   side : @protocol.Side,
 ) -> InputOutcome {
   let events : Array[@protocol.ServerEvent] = []
-  if !self.has_side(side) {
+  if self.ended {
+    { response: @protocol.InputRejected("match ended"), events }
+  } else if !self.has_side(side) {
     { response: @protocol.InputRejected("side not seated"), events }
   } else {
     self.mark_ready(side)
     events.push(@protocol.PlayerReady(side))
     if self.both_ready() && self.current_window_id is None {
       let window_id = self.next_window()
-      self.current_window_id = Some(window_id)
-      events.push(@protocol.InputWindowOpened(window_id))
+      if !self.started {
+        self.started = true
+        events.push(@protocol.MatchStarted)
+      }
+      for event in self.open_window_events(window_id) {
+        events.push(event)
+      }
       { response: @protocol.WindowOpened(window_id), events }
     } else {
       { response: @protocol.ReadyAccepted(side), events }
@@ -100,7 +186,9 @@ fn MatchSession::handle_intervention_outcome(
   intervention : @protocol.Intervention,
 ) -> InputOutcome {
   let events : Array[@protocol.ServerEvent] = []
-  if !self.has_side(intervention.side) {
+  if self.ended {
+    { response: @protocol.InputRejected("match ended"), events }
+  } else if !self.has_side(intervention.side) {
     { response: @protocol.InputRejected("side not seated"), events }
   } else {
     match self.current_window_id {
@@ -108,8 +196,37 @@ fn MatchSession::handle_intervention_outcome(
         { response: @protocol.InputRejected("no open input window"), events }
       Some(window_id) =>
         if intervention.is_for_window(window_id) {
+          self.current_interventions.push(intervention)
           events.push(@protocol.InterventionSubmitted(intervention))
           { response: @protocol.InterventionAccepted(intervention), events }
+        } else {
+          { response: @protocol.InputRejected("stale input window"), events }
+        }
+    }
+  }
+}
+
+///|
+fn MatchSession::handle_lock_outcome(
+  self : MatchSession,
+  side : @protocol.Side,
+  lock_window_id : @protocol.WindowId,
+) -> InputOutcome {
+  let events : Array[@protocol.ServerEvent] = []
+  if self.ended {
+    { response: @protocol.InputRejected("match ended"), events }
+  } else if !self.has_side(side) {
+    { response: @protocol.InputRejected("side not seated"), events }
+  } else {
+    match self.current_window_id {
+      None =>
+        { response: @protocol.InputRejected("no open input window"), events }
+      Some(window_id) =>
+        if window_id == lock_window_id {
+          for event in self.lock_current_window() {
+            events.push(event)
+          }
+          { response: @protocol.WindowLockedAck(lock_window_id), events }
         } else {
           { response: @protocol.InputRejected("stale input window"), events }
         }
@@ -124,12 +241,21 @@ fn MatchSession::handle_input_outcome(
 ) -> InputOutcome {
   match input {
     @protocol.Ready(side) => self.handle_ready_outcome(side)
+    @protocol.LockWindow(side, window_id) =>
+      self.handle_lock_outcome(side, window_id)
     @protocol.Leave(side) => {
       let events : Array[@protocol.ServerEvent] = []
-      if self.has_side(side) {
+      if self.ended {
+        { response: @protocol.InputRejected("match ended"), events }
+      } else if self.has_side(side) {
         events.push(@protocol.PlayerLeft(side))
+        for event in self.finish_match_events("\{side.label()} left") {
+          events.push(event)
+        }
+        { response: @protocol.MatchLeft(side), events }
+      } else {
+        { response: @protocol.InputRejected("side not seated"), events }
       }
-      { response: @protocol.MatchLeft(side), events }
     }
     @protocol.SubmitIntervention(intervention) =>
       self.handle_intervention_outcome(intervention)
@@ -169,7 +295,7 @@ pub fn MatchSession::handle_frame_outcome(
         None =>
           {
             reply: @protocol.InputRejected("invalid input").to_wire_text(),
-            events: [],
+            events: [@protocol.ProtocolError("invalid input")],
           }
       }
   }
@@ -189,4 +315,54 @@ pub fn MatchSession::handle_frame_events(
   frame : String,
 ) -> Array[@protocol.ServerEvent] {
   self.handle_frame_outcome(frame).events
+}
+
+///|
+pub fn MatchSession::handle_disconnect(
+  self : MatchSession,
+  side : @protocol.Side,
+) -> Array[@protocol.ServerEvent] {
+  if self.started && !self.ended && self.has_side(side) {
+    let events : Array[@protocol.ServerEvent] = [
+      @protocol.PlayerDisconnected(side),
+    ]
+    for event in self.finish_match_events("\{side.label()} disconnected") {
+      events.push(event)
+    }
+    events
+  } else {
+    []
+  }
+}
+
+///|
+pub fn MatchSession::lock_current_window(
+  self : MatchSession,
+) -> Array[@protocol.ServerEvent] {
+  if self.ended {
+    []
+  } else {
+    match self.current_window_id {
+      None => []
+      Some(window_id) => {
+        let intervention_count = self.current_interventions.length()
+        let events : Array[@protocol.ServerEvent] = [
+          @protocol.WindowLocked(window_id),
+        ]
+        for
+          event in agent_plan_events(
+            window_id,
+            @protocol.FinalPlan,
+            intervention_count,
+          ) {
+          events.push(event)
+        }
+        events.push(@protocol.WindowExecuted(window_id))
+        for event in self.open_window_events(self.next_window()) {
+          events.push(event)
+        }
+        events
+      }
+    }
+  }
 }

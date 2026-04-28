@@ -1,6 +1,13 @@
 # 小虾牌 (Shrimp Cards)
 
-简体中文 | [English](./README.en.md)
+<p align="left">
+  <a href="./README.md"><img alt="简体中文" src="https://img.shields.io/static/v1?label=%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87&message=current&color=0f766e"></a>
+  <a href="./README.en.md"><img alt="English" src="https://img.shields.io/static/v1?label=English&message=README&color=64748b"></a>
+  <a href="https://www.moonbitlang.com/"><img alt="MoonBit" src="https://img.shields.io/static/v1?label=MoonBit&message=native&color=7c3aed"></a>
+  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/static/v1?label=license&message=MIT&color=22c55e"></a>
+  <img alt="terminal-first" src="https://img.shields.io/static/v1?label=terminal&message=first&color=334155">
+  <img alt="PvE and PvP" src="https://img.shields.io/static/v1?label=mode&message=PvE%20%2B%20PvP&color=2563eb">
+</p>
 
 小虾牌是一个终端优先的 MoonBit 卡牌游戏基础项目，用来支持 PvE 和 PvP
 实验。当前代码重点放在玩法以外的基础设施：本地 host/client 通信、实时干预窗口、replay
@@ -100,3 +107,7 @@ moon run cmd/main --target native -- replay \
 ## CI
 
 GitHub Actions 会在推送到 `main` 和创建 pull request 时运行格式检查、native 检查、native 测试、默认测试和生成接口校验。
+
+## 许可证
+
+本项目使用 [MIT License](./LICENSE)。

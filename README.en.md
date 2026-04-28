@@ -1,6 +1,13 @@
 # Shrimp Cards
 
-[简体中文](./README.md) | English
+<p align="left">
+  <a href="./README.md"><img alt="简体中文" src="https://img.shields.io/static/v1?label=%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87&message=README&color=64748b"></a>
+  <a href="./README.en.md"><img alt="English" src="https://img.shields.io/static/v1?label=English&message=current&color=0f766e"></a>
+  <a href="https://www.moonbitlang.com/"><img alt="MoonBit" src="https://img.shields.io/static/v1?label=MoonBit&message=native&color=7c3aed"></a>
+  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/static/v1?label=license&message=MIT&color=22c55e"></a>
+  <img alt="terminal-first" src="https://img.shields.io/static/v1?label=terminal&message=first&color=334155">
+  <img alt="PvE and PvP" src="https://img.shields.io/static/v1?label=mode&message=PvE%20%2B%20PvP&color=2563eb">
+</p>
 
 Shrimp Cards is a terminal-first MoonBit card-game foundation for PvE and PvP
 experiments. The current code focuses on non-gameplay infrastructure: local
@@ -105,3 +112,7 @@ moon run cmd/main --target native -- replay \
 
 GitHub Actions runs formatting, native checks, native tests, default tests, and
 generated interface verification on pushes to `main` and on pull requests.
+
+## License
+
+This project is licensed under the [MIT License](./LICENSE).

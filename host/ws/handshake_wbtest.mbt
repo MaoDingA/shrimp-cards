@@ -172,3 +172,38 @@ async test "websocket host broadcasts events to connected clients" {
     }
   })
 }
+
+///|
+async test "websocket host replays subscribed events from cursor" {
+  @async.with_task_group(group => {
+    let server = @http.Server(@socket.Addr::parse("127.0.0.1:0"))
+    let addr = server.addr
+    group.spawn_bg(no_wait=true, () => run_handshake_server(server, _ => ()))
+    @async.sleep(50)
+    let url = "ws://localhost:\{addr.port()}/match"
+    let alice = @raw_ws.connect(url)
+    defer alice.close()
+    alice.send_text(@protocol.JoinRequest::new("p1", "Alice").to_wire_text())
+    ignore(recv_join(alice))
+    ignore(recv_event(alice))
+    let bob = @raw_ws.connect(url)
+    defer bob.close()
+    bob.send_text(@protocol.JoinRequest::new("p2", "Bob").to_wire_text())
+    ignore(recv_join(bob))
+    ignore(recv_event(alice))
+    ignore(recv_event(bob))
+    let watcher = @raw_ws.connect(url)
+    defer watcher.close()
+    watcher.send_text(@protocol.EventSubscription::new(1).to_wire_text())
+    match recv_event(watcher) {
+      Some(@protocol.PlayerJoined(player)) =>
+        assert_true(player.side == @protocol.B)
+      _ => fail("expected replayed Bob joined event")
+    }
+    alice.send_text(@protocol.Ready(@protocol.A).to_wire_text())
+    match recv_event(watcher) {
+      Some(@protocol.PlayerReady(side)) => assert_true(side == @protocol.A)
+      _ => fail("expected live ready event for watcher")
+    }
+  })
+}

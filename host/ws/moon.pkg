@@ -1,6 +1,7 @@
 import {
   "MaoDingA/shrimp_cards/host" @host,
   "MaoDingA/shrimp_cards/protocol" @protocol,
+  "MaoDingA/shrimp_cards/replay" @replay,
   "moonbitlang/async/http" @http,
   "moonbitlang/async/websocket" @raw_ws,
 }

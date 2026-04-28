@@ -92,3 +92,29 @@ async test "client websocket live session uses one connection" {
     live.session.close()
   })
 }
+
+///|
+async test "client websocket subscribes to event stream from cursor" {
+  @async.with_task_group(group => {
+    let server = @http.Server(@socket.Addr::parse("127.0.0.1:0"))
+    let addr = server.addr
+    let received : Array[String] = []
+    group.spawn_bg(no_wait=true, () => {
+      server.run_forever((request, _, conn) => {
+        let ws = @raw_ws.from_http_server(request, conn)
+        defer ws.close()
+        received.push(recv_server_text(ws))
+        ws.send_text(@protocol.PlayerReady(@protocol.A).to_wire_text())
+      })
+    })
+    @async.sleep(50)
+    let session = subscribe_events("ws://localhost:\{addr.port()}/match", 2)
+    match session.recv_message() {
+      EventMessage(@protocol.PlayerReady(side)) =>
+        assert_true(side == @protocol.A)
+      _ => fail("expected subscribed event")
+    }
+    assert_eq(received, [@protocol.EventSubscription::new(2).to_wire_text()])
+    session.close()
+  })
+}

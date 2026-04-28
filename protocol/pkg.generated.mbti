@@ -20,6 +20,14 @@ pub(all) enum ClientInput {
 pub fn ClientInput::from_wire_text(String) -> Self?
 pub fn ClientInput::to_wire_text(Self) -> String
 
+pub(all) struct EventSubscription {
+  from_event_id : Int
+} derive(Eq, @debug.Debug)
+pub fn EventSubscription::from_wire_text(String) -> Self?
+pub fn EventSubscription::new(Int) -> Self
+pub fn EventSubscription::summary(Self) -> String
+pub fn EventSubscription::to_wire_text(Self) -> String
+
 pub(all) enum InputResponse {
   ReadyAccepted(Side)
   WindowOpened(WindowId)
@@ -94,7 +102,7 @@ pub(all) enum ServerEvent {
   InputWindowOpened(WindowId)
   InterventionSubmitted(Intervention)
   PlayerLeft(Side)
-} derive(Eq, @debug.Debug)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub fn ServerEvent::from_wire_text(String) -> Self?
 pub fn ServerEvent::summary(Self) -> String
 pub fn ServerEvent::to_wire_text(Self) -> String

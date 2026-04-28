@@ -16,7 +16,7 @@ pub(all) enum ServerEvent {
   InputWindowOpened(WindowId)
   InterventionSubmitted(Intervention)
   PlayerLeft(Side)
-} derive(Eq, Debug)
+} derive(Eq, Debug, ToJson, FromJson)
 
 ///|
 pub fn ServerEvent::to_wire_text(self : ServerEvent) -> String {

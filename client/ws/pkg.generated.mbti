@@ -14,6 +14,8 @@ pub async fn join_once(@client.ClientConfig) -> @protocol.JoinResponse
 
 pub async fn send_input_once(String, @protocol.ClientInput) -> @protocol.InputResponse
 
+pub async fn subscribe_events(String, Int) -> LiveSession
+
 // Errors
 
 // Types and methods

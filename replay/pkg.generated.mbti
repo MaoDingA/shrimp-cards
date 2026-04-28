@@ -13,6 +13,18 @@ pub let replay_format_version : Int
 // Errors
 
 // Types and methods
+pub struct ReplayEventJournal {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ReplayEventJournal::append(Self, @protocol.ServerEvent) -> ReplayEventRecord
+pub fn ReplayEventJournal::new() -> Self
+pub fn ReplayEventJournal::records_from(Self, Int) -> Array[ReplayEventRecord]
+
+pub(all) struct ReplayEventRecord {
+  event_id : Int
+  event : @protocol.ServerEvent
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
 pub(all) struct ReplayHeader {
   match_id : String
   created_at : String

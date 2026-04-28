@@ -178,3 +178,13 @@ test "server event round trips intervention and leave" {
     _ => fail("expected leave event")
   }
 }
+
+///|
+test "event subscription round trips cursor wire text" {
+  let subscription = EventSubscription::new(3)
+  assert_eq(subscription.from_event_id, 3)
+  match EventSubscription::from_wire_text(subscription.to_wire_text()) {
+    Some(decoded) => assert_eq(decoded.from_event_id, 3)
+    None => fail("expected event subscription")
+  }
+}

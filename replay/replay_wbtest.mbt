@@ -58,3 +58,23 @@ test "replay log requires compatible versions and both player seats" {
   )
   assert_true(log.can_play())
 }
+
+///|
+test "replay event journal returns public events from cursor" {
+  let journal = ReplayEventJournal::new()
+  let first = journal.append(
+    @protocol.PlayerJoined(
+      @protocol.PlayerIdentity::new("p1", "Alice", @protocol.A),
+    ),
+  )
+  let second = journal.append(@protocol.PlayerReady(@protocol.A))
+  assert_eq(first.event_id, 0)
+  assert_eq(second.event_id, 1)
+  match journal.records_from(1) {
+    [record] => {
+      assert_eq(record.event_id, 1)
+      assert_true(record.event == @protocol.PlayerReady(@protocol.A))
+    }
+    _ => fail("expected one replay event")
+  }
+}

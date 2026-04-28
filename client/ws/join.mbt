@@ -57,6 +57,16 @@ pub async fn connect_live(config : @client.ClientConfig) -> LiveJoin {
 }
 
 ///|
+pub async fn subscribe_events(
+  host_url : String,
+  from_event_id : Int,
+) -> LiveSession {
+  let conn = @raw_ws.connect(host_url)
+  conn.send_text(@protocol.EventSubscription::new(from_event_id).to_wire_text())
+  { conn, }
+}
+
+///|
 pub async fn LiveSession::recv_message(self : LiveSession) -> HostMessage {
   HostMessage::from_wire_text(read_text(self.conn))
 }

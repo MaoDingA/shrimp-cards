@@ -12,6 +12,25 @@ pub let protocol_version : Int
 // Errors
 
 // Types and methods
+pub(all) enum ClientInput {
+  Ready(Side)
+  Leave(Side)
+  SubmitIntervention(Intervention)
+} derive(Eq, @debug.Debug)
+pub fn ClientInput::from_wire_text(String) -> Self?
+pub fn ClientInput::to_wire_text(Self) -> String
+
+pub(all) enum InputResponse {
+  ReadyAccepted(Side)
+  WindowOpened(WindowId)
+  MatchLeft(Side)
+  InterventionAccepted(Intervention)
+  InputRejected(String)
+} derive(Eq, @debug.Debug)
+pub fn InputResponse::from_wire_text(String) -> Self?
+pub fn InputResponse::summary(Self) -> String
+pub fn InputResponse::to_wire_text(Self) -> String
+
 pub(all) struct Intervention {
   side : Side
   window_id : WindowId
@@ -26,6 +45,8 @@ pub(all) enum InterventionKind {
   HardConstraint
   SoftPreference
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn InterventionKind::from_wire_label(String) -> Self?
+pub fn InterventionKind::wire_label(Self) -> String
 
 pub(all) struct JoinRequest {
   player_id : String
@@ -76,6 +97,7 @@ pub fn Side::label(Self) -> String
 pub(all) struct WindowId(Int) derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub fn WindowId::accepts(Self, Self) -> Bool
 pub fn WindowId::new(Int) -> Self
+pub fn WindowId::value(Self) -> Int
 
 // Type aliases
 

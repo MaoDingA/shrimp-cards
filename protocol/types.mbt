@@ -40,6 +40,13 @@ pub fn WindowId::new(value : Int) -> WindowId {
 }
 
 ///|
+pub fn WindowId::value(self : WindowId) -> Int {
+  match self {
+    WindowId(value) => value
+  }
+}
+
+///|
 pub fn WindowId::accepts(self : WindowId, input_window : WindowId) -> Bool {
   self == input_window
 }

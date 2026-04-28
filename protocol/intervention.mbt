@@ -5,6 +5,23 @@ pub(all) enum InterventionKind {
 } derive(Eq, Debug, ToJson, FromJson)
 
 ///|
+pub fn InterventionKind::wire_label(self : InterventionKind) -> String {
+  match self {
+    HardConstraint => "hard"
+    SoftPreference => "soft"
+  }
+}
+
+///|
+pub fn InterventionKind::from_wire_label(label : String) -> InterventionKind? {
+  match label {
+    "hard" => Some(HardConstraint)
+    "soft" => Some(SoftPreference)
+    _ => None
+  }
+}
+
+///|
 pub(all) struct Intervention {
   side : Side
   window_id : WindowId

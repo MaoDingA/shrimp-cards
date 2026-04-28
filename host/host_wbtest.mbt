@@ -40,3 +40,80 @@ test "host lobby handles join wire text" {
     _ => fail("expected accepted response")
   }
 }
+
+///|
+test "match session opens first window after both players are ready" {
+  let session = MatchSession::new()
+  ignore(
+    session.handle_frame(
+      @protocol.JoinRequest::new("p1", "Alice").to_wire_text(),
+    ),
+  )
+  ignore(
+    session.handle_frame(@protocol.JoinRequest::new("p2", "Bob").to_wire_text()),
+  )
+  let first = session.handle_frame(@protocol.Ready(@protocol.A).to_wire_text())
+  match @protocol.InputResponse::from_wire_text(first) {
+    Some(@protocol.ReadyAccepted(side)) => assert_true(side == @protocol.A)
+    _ => fail("expected ready accepted")
+  }
+  let second = session.handle_frame(@protocol.Ready(@protocol.B).to_wire_text())
+  match @protocol.InputResponse::from_wire_text(second) {
+    Some(@protocol.WindowOpened(window_id)) =>
+      assert_true(window_id == @protocol.WindowId::new(1))
+    _ => fail("expected first window to open")
+  }
+}
+
+///|
+test "match session accepts intervention only for open window" {
+  let session = MatchSession::new()
+  ignore(
+    session.handle_frame(
+      @protocol.JoinRequest::new("p1", "Alice").to_wire_text(),
+    ),
+  )
+  ignore(
+    session.handle_frame(@protocol.JoinRequest::new("p2", "Bob").to_wire_text()),
+  )
+  let intervention = @protocol.Intervention::new(
+    side=@protocol.A,
+    window_id=@protocol.WindowId::new(1),
+    sequence_id=@protocol.SequenceId::new(1),
+    kind=@protocol.SoftPreference,
+    text="/prefer defend",
+  )
+  let rejected = session.handle_frame(
+    @protocol.SubmitIntervention(intervention).to_wire_text(),
+  )
+  match @protocol.InputResponse::from_wire_text(rejected) {
+    Some(@protocol.InputRejected(reason)) =>
+      assert_eq(reason, "no open input window")
+    _ => fail("expected intervention to be rejected before ready")
+  }
+  ignore(session.handle_frame(@protocol.Ready(@protocol.A).to_wire_text()))
+  ignore(session.handle_frame(@protocol.Ready(@protocol.B).to_wire_text()))
+  let accepted = session.handle_frame(
+    @protocol.SubmitIntervention(intervention).to_wire_text(),
+  )
+  match @protocol.InputResponse::from_wire_text(accepted) {
+    Some(@protocol.InterventionAccepted(decoded)) =>
+      assert_true(decoded.side == @protocol.A)
+    _ => fail("expected intervention to be accepted")
+  }
+}
+
+///|
+test "match session handles leave input" {
+  let session = MatchSession::new()
+  ignore(
+    session.handle_frame(
+      @protocol.JoinRequest::new("p1", "Alice").to_wire_text(),
+    ),
+  )
+  let reply = session.handle_frame(@protocol.Leave(@protocol.A).to_wire_text())
+  match @protocol.InputResponse::from_wire_text(reply) {
+    Some(@protocol.MatchLeft(side)) => assert_true(side == @protocol.A)
+    _ => fail("expected leave response")
+  }
+}

@@ -91,3 +91,48 @@ test "join response round trips accepted seat" {
     _ => fail("expected accepted response")
   }
 }
+
+///|
+test "client ready and leave inputs round trip wire text" {
+  let ready = Ready(A)
+  match ClientInput::from_wire_text(ready.to_wire_text()) {
+    Some(Ready(side)) => assert_true(side == A)
+    _ => fail("expected ready input")
+  }
+  let leave = Leave(B)
+  match ClientInput::from_wire_text(leave.to_wire_text()) {
+    Some(Leave(side)) => assert_true(side == B)
+    _ => fail("expected leave input")
+  }
+}
+
+///|
+test "client intervention input round trips wire text" {
+  let intervention = Intervention::new(
+    side=A,
+    window_id=WindowId::new(1),
+    sequence_id=SequenceId::new(2),
+    kind=SoftPreference,
+    text="/prefer defend",
+  )
+  let input = SubmitIntervention(intervention)
+  match ClientInput::from_wire_text(input.to_wire_text()) {
+    Some(SubmitIntervention(decoded)) => {
+      assert_true(decoded.side == A)
+      assert_true(decoded.window_id == WindowId::new(1))
+      assert_true(decoded.sequence_id == SequenceId::new(2))
+      assert_true(decoded.kind == SoftPreference)
+      assert_eq(decoded.text, "/prefer defend")
+    }
+    _ => fail("expected intervention input")
+  }
+}
+
+///|
+test "host input response round trips window opened" {
+  let response = WindowOpened(WindowId::new(1))
+  match InputResponse::from_wire_text(response.to_wire_text()) {
+    Some(WindowOpened(window_id)) => assert_true(window_id == WindowId::new(1))
+    _ => fail("expected window opened response")
+  }
+}

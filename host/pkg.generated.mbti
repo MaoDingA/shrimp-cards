@@ -25,6 +25,16 @@ pub fn Lobby::handle_join_frame(Self, String) -> String
 pub fn Lobby::is_ready_to_start(Self) -> Bool
 pub fn Lobby::new() -> Self
 
+pub(all) struct MatchSession {
+  lobby : Lobby
+  mut side_a_ready : Bool
+  mut side_b_ready : Bool
+  mut current_window_id : @protocol.WindowId?
+} derive(Eq, @debug.Debug)
+pub fn MatchSession::handle_frame(Self, String) -> String
+pub fn MatchSession::handle_input(Self, @protocol.ClientInput) -> @protocol.InputResponse
+pub fn MatchSession::new() -> Self
+
 // Type aliases
 
 // Traits

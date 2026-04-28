@@ -7,6 +7,7 @@ import {
 }
 
 // Values
+pub fn parse_supervisor_line(@protocol.Side, @protocol.WindowId?, @protocol.SequenceId, String) -> @protocol.ClientInput?
 
 // Errors
 

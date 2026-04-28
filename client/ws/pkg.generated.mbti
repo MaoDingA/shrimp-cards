@@ -9,6 +9,8 @@ import {
 // Values
 pub async fn join_once(@client.ClientConfig) -> @protocol.JoinResponse
 
+pub async fn send_input_once(String, @protocol.ClientInput) -> @protocol.InputResponse
+
 // Errors
 
 // Types and methods

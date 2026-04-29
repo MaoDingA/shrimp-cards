@@ -29,6 +29,7 @@ pub fn AgentPlanPhase::from_wire_label(String) -> Self?
 pub fn AgentPlanPhase::wire_label(Self) -> String
 
 pub(all) enum ClientInput {
+  Heartbeat(Side)
   Ready(Side)
   Leave(Side)
   LockWindow(Side, WindowId)
@@ -46,6 +47,7 @@ pub fn EventSubscription::summary(Self) -> String
 pub fn EventSubscription::to_wire_text(Self) -> String
 
 pub(all) enum InputResponse {
+  HeartbeatAck(Side)
   ReadyAccepted(Side)
   WindowOpened(WindowId)
   WindowLockedAck(WindowId)
@@ -127,6 +129,7 @@ pub(all) enum ServerEvent {
   PlayerDisconnected(Side)
   MatchEnded(String)
   ReplaySaved(String)
+  ReplaySaveFailed(String, String)
   ProtocolError(String)
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub fn ServerEvent::from_wire_text(String) -> Self?

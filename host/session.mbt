@@ -240,6 +240,14 @@ fn MatchSession::handle_input_outcome(
   input : @protocol.ClientInput,
 ) -> InputOutcome {
   match input {
+    @protocol.Heartbeat(side) => {
+      let events : Array[@protocol.ServerEvent] = []
+      if self.has_side(side) {
+        { response: @protocol.HeartbeatAck(side), events }
+      } else {
+        { response: @protocol.InputRejected("side not seated"), events }
+      }
+    }
     @protocol.Ready(side) => self.handle_ready_outcome(side)
     @protocol.LockWindow(side, window_id) =>
       self.handle_lock_outcome(side, window_id)

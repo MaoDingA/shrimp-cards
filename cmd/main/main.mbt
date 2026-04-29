@@ -170,6 +170,9 @@ async fn run_join(options : @cli.JoinOptions) -> Unit {
       print_terminal_screen(terminal, lang)
       @async.with_task_group(group => {
         group.spawn_bg(no_wait=true, () => {
+          live.session.send_heartbeat_loop(player.side, 5000)
+        })
+        group.spawn_bg(no_wait=true, () => {
           try {
             for ;; {
               let message = live.session.recv_message()

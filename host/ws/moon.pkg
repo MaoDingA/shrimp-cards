@@ -2,6 +2,7 @@ import {
   "MaoDingA/shrimp_cards/host" @host,
   "MaoDingA/shrimp_cards/protocol" @protocol,
   "MaoDingA/shrimp_cards/replay" @replay,
+  "moonbitlang/async" @async,
   "moonbitlang/async/http" @http,
   "moonbitlang/async/websocket" @raw_ws,
 }
@@ -11,7 +12,6 @@ import {
   "MaoDingA/shrimp_cards/client/ws" @client_ws,
   "MaoDingA/shrimp_cards/protocol" @protocol,
   "MaoDingA/shrimp_cards/transport/websocket" @websocket,
-  "moonbitlang/async" @async,
   "moonbitlang/async/fs" @fs,
   "moonbitlang/async/socket" @socket,
   "moonbitlang/async/websocket" @raw_ws,

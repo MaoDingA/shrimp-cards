@@ -23,6 +23,27 @@ pub async fn send_input_once(
 }
 
 ///|
+pub async fn send_heartbeat_once(
+  host_url : String,
+  side : @protocol.Side,
+  timeout_ms : Int,
+) -> Bool {
+  match
+    @websocket.send_text_once_with_timeout(
+      host_url,
+      @protocol.Heartbeat(side).to_wire_text(),
+      timeout_ms,
+    ) {
+    Some(reply) =>
+      match @protocol.InputResponse::from_wire_text(reply) {
+        Some(@protocol.HeartbeatAck(ack_side)) => ack_side == side
+        _ => false
+      }
+    None => false
+  }
+}
+
+///|
 pub struct LiveSession {
   priv conn : @raw_ws.Conn
 }
@@ -77,6 +98,22 @@ pub async fn LiveSession::send_input(
   input : @protocol.ClientInput,
 ) -> Unit {
   self.conn.send_text(input.to_wire_text())
+}
+
+///|
+pub async fn LiveSession::send_heartbeat_loop(
+  self : LiveSession,
+  side : @protocol.Side,
+  interval_ms : Int,
+) -> Unit {
+  let delay = if interval_ms <= 0 { 1000 } else { interval_ms }
+  let mut running = true
+  while running {
+    @async.sleep(delay)
+    self.conn.send_text(@protocol.Heartbeat(side).to_wire_text()) catch {
+      _ => running = false
+    }
+  }
 }
 
 ///|

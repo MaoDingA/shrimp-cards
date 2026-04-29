@@ -10,6 +10,8 @@ pub async fn run_text_server(@http.Server, async (String) -> String) -> Unit
 
 pub async fn send_text_once(String, String) -> String
 
+pub async fn send_text_once_with_timeout(String, String, Int) -> String?
+
 // Errors
 
 // Types and methods

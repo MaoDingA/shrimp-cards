@@ -144,6 +144,17 @@ pub fn ReplayEventJournal::to_event_log(
 }
 
 ///|
+pub fn ReplayEventJournal::to_event_log_with_event(
+  self : ReplayEventJournal,
+  header : ReplayHeader,
+  event : @protocol.ServerEvent,
+) -> ReplayEventLog {
+  let records = self.records_from(0)
+  records.push({ event_id: records.length(), event })
+  ReplayEventLog::new(header, records)
+}
+
+///|
 async fn ensure_parent_directory(path : String) -> Unit {
   match path.rev_split_once("/") {
     Some((directory, _)) =>

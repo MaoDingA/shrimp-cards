@@ -1,5 +1,6 @@
 ///|
 pub(all) enum ClientInput {
+  Heartbeat(Side)
   Ready(Side)
   Leave(Side)
   LockWindow(Side, WindowId)
@@ -9,6 +10,7 @@ pub(all) enum ClientInput {
 ///|
 pub fn ClientInput::to_wire_text(self : ClientInput) -> String {
   match self {
+    Heartbeat(side) => "heartbeat\t\{side.label()}"
     Ready(side) => "ready\t\{side.label()}"
     Leave(side) => "leave\t\{side.label()}"
     LockWindow(side, window_id) => "lock\t\{side.label()}\t\{window_id.value()}"
@@ -25,6 +27,11 @@ fn parse_side(raw : String) -> Side? {
 ///|
 pub fn ClientInput::from_wire_text(frame : String) -> ClientInput? {
   match split_wire_text(frame) {
+    ["heartbeat", side_label] =>
+      match parse_side(side_label) {
+        Some(side) => Some(Heartbeat(side))
+        None => None
+      }
     ["ready", side_label] =>
       match parse_side(side_label) {
         Some(side) => Some(Ready(side))
@@ -70,6 +77,7 @@ pub fn ClientInput::from_wire_text(frame : String) -> ClientInput? {
 
 ///|
 pub(all) enum InputResponse {
+  HeartbeatAck(Side)
   ReadyAccepted(Side)
   WindowOpened(WindowId)
   WindowLockedAck(WindowId)
@@ -81,6 +89,7 @@ pub(all) enum InputResponse {
 ///|
 pub fn InputResponse::to_wire_text(self : InputResponse) -> String {
   match self {
+    HeartbeatAck(side) => "heartbeat_ok\t\{side.label()}"
     ReadyAccepted(side) => "ready_ok\t\{side.label()}"
     WindowOpened(window_id) => "window_open\t\{window_id.value()}"
     WindowLockedAck(window_id) => "lock_ok\t\{window_id.value()}"
@@ -94,6 +103,11 @@ pub fn InputResponse::to_wire_text(self : InputResponse) -> String {
 ///|
 pub fn InputResponse::from_wire_text(frame : String) -> InputResponse? {
   match split_wire_text(frame) {
+    ["heartbeat_ok", side_label] =>
+      match parse_side(side_label) {
+        Some(side) => Some(HeartbeatAck(side))
+        None => None
+      }
     ["ready_ok", side_label] =>
       match parse_side(side_label) {
         Some(side) => Some(ReadyAccepted(side))
@@ -147,6 +161,7 @@ pub fn InputResponse::from_wire_text(frame : String) -> InputResponse? {
 ///|
 pub fn InputResponse::summary(self : InputResponse) -> String {
   match self {
+    HeartbeatAck(side) => "\{side.label()} heartbeat"
     ReadyAccepted(side) => "\{side.label()} ready"
     WindowOpened(window_id) => "window \{window_id.value()} opened"
     WindowLockedAck(window_id) => "window \{window_id.value()} locked"

@@ -113,6 +113,56 @@ async fn recv_replay_saved_path(conn : @raw_ws.Conn) -> String? {
 }
 
 ///|
+async fn recv_replay_save_failed(conn : @raw_ws.Conn) -> @protocol.ServerEvent? {
+  match recv_event(conn) {
+    Some(@protocol.ReplaySaveFailed(_, _) as event) => Some(event)
+    Some(_) => recv_replay_save_failed(conn)
+    None => None
+  }
+}
+
+///|
+async fn recv_disconnected_side(conn : @raw_ws.Conn) -> @protocol.Side? {
+  match recv_event(conn) {
+    Some(@protocol.PlayerDisconnected(side)) => Some(side)
+    Some(_) => recv_disconnected_side(conn)
+    None => None
+  }
+}
+
+///|
+async fn recv_match_end_reason(conn : @raw_ws.Conn) -> String? {
+  match recv_event(conn) {
+    Some(@protocol.MatchEnded(reason)) => Some(reason)
+    Some(_) => recv_match_end_reason(conn)
+    None => None
+  }
+}
+
+///|
+test "connection activity expires stale side once" {
+  let activity = ConnectionActivity::new(timeout_ms=100)
+  activity.mark_seen(@protocol.A, 1000)
+  activity.mark_seen(@protocol.B, 1050)
+  match activity.expired_sides(1099) {
+    [] => ()
+    _ => fail("expected no stale sides before timeout")
+  }
+  match activity.expired_sides(1100) {
+    [@protocol.A] => ()
+    _ => fail("expected A to expire first")
+  }
+  match activity.expired_sides(1150) {
+    [@protocol.B] => ()
+    _ => fail("expected B to expire second")
+  }
+  match activity.expired_sides(1200) {
+    [] => ()
+    _ => fail("expected expired sides to be reported once")
+  }
+}
+
+///|
 test "websocket host config builds replay metadata" {
   let config = HandshakeServerConfig::new(
     match_id="local-match",
@@ -123,6 +173,11 @@ test "websocket host config builds replay metadata" {
   let header = config.replay_header()
   assert_eq(header.match_id, "local-match")
   assert_eq(header.seed, 42)
+  assert_eq(config.heartbeat_timeout_ms, 30000)
+  assert_eq(config.heartbeat_scan_ms, 1000)
+  let heartbeat_config = config.with_heartbeat(timeout_ms=120, scan_ms=30)
+  assert_eq(heartbeat_config.heartbeat_timeout_ms, 120)
+  assert_eq(heartbeat_config.heartbeat_scan_ms, 30)
 }
 
 ///|
@@ -289,6 +344,86 @@ async test "websocket host saves replay when player leaves" {
           None => fail("expected saved replay event log")
         }
       None => fail("expected replay saved event")
+    }
+  })
+}
+
+///|
+async test "websocket host publishes replay save failure" {
+  @async.with_task_group(group => {
+    let server = @http.Server(@socket.Addr::parse("127.0.0.1:0"))
+    let addr = server.addr
+    let bad_parent = "_build/replay-save-failure-parent-\{addr.port()}"
+    @fs.write_file(bad_parent, "not a directory", create_mode=CreateOrTruncate)
+    let config = HandshakeServerConfig::new(
+      match_id="match",
+      replay_dir=bad_parent,
+      seed=1,
+    )
+    group.spawn_bg(no_wait=true, () => {
+      run_handshake_server_with_config(server, config, _ => ())
+    })
+    @async.sleep(50)
+    let url = "ws://localhost:\{addr.port()}/match"
+    let alice = @raw_ws.connect(url)
+    defer alice.close()
+    alice.send_text(@protocol.JoinRequest::new("p1", "Alice").to_wire_text())
+    ignore(recv_join(alice))
+    ignore(recv_event(alice))
+    alice.send_text(@protocol.Leave(@protocol.A).to_wire_text())
+    match recv_replay_save_failed(alice) {
+      Some(@protocol.ReplaySaveFailed(path, reason)) => {
+        assert_eq(path, "\{bad_parent}/match.json")
+        assert_eq(reason, "could not write replay")
+      }
+      _ => fail("expected replay save failure event")
+    }
+    @fs.remove(bad_parent) catch {
+      _ => ()
+    }
+  })
+}
+
+///|
+async test "websocket host ends match when heartbeat times out" {
+  @async.with_task_group(group => {
+    let server = @http.Server(@socket.Addr::parse("127.0.0.1:0"))
+    let addr = server.addr
+    let replay_dir = "_build/heartbeat-timeout-\{addr.port()}"
+    let config = HandshakeServerConfig::new(
+      match_id="match",
+      replay_dir~,
+      seed=1,
+    ).with_heartbeat(timeout_ms=160, scan_ms=30)
+    group.spawn_bg(no_wait=true, () => {
+      run_handshake_server_with_config(server, config, _ => ())
+    })
+    @async.sleep(50)
+    let url = "ws://localhost:\{addr.port()}/match"
+    let alice = @raw_ws.connect(url)
+    defer alice.close()
+    alice.send_text(@protocol.JoinRequest::new("p1", "Alice").to_wire_text())
+    ignore(recv_join(alice))
+    ignore(recv_event(alice))
+    let bob = @raw_ws.connect(url)
+    defer bob.close()
+    bob.send_text(@protocol.JoinRequest::new("p2", "Bob").to_wire_text())
+    ignore(recv_join(bob))
+    ignore(recv_event(alice))
+    ignore(recv_event(bob))
+    alice.send_text(@protocol.Ready(@protocol.A).to_wire_text())
+    bob.send_text(@protocol.Ready(@protocol.B).to_wire_text())
+    match recv_disconnected_side(alice) {
+      Some(side) => assert_true(side == @protocol.A)
+      None => fail("expected heartbeat timeout disconnect")
+    }
+    match recv_match_end_reason(alice) {
+      Some(reason) => assert_eq(reason, "A disconnected")
+      None => fail("expected heartbeat timeout to end match")
+    }
+    match recv_replay_saved_path(alice) {
+      Some(path) => @fs.remove(path) catch { _ => () }
+      None => fail("expected timeout replay to be saved")
     }
   })
 }

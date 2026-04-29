@@ -23,6 +23,7 @@ pub(all) enum ServerEvent {
   PlayerDisconnected(Side)
   MatchEnded(String)
   ReplaySaved(String)
+  ReplaySaveFailed(String, String)
   ProtocolError(String)
 } derive(Eq, Debug, ToJson, FromJson)
 
@@ -44,6 +45,8 @@ pub fn ServerEvent::to_wire_text(self : ServerEvent) -> String {
     PlayerDisconnected(side) => "event_disconnected\t\{side.label()}"
     MatchEnded(reason) => "event_match_ended\t\{encode_wire_field(reason)}"
     ReplaySaved(path) => "event_replay_saved\t\{encode_wire_field(path)}"
+    ReplaySaveFailed(path, reason) =>
+      "event_replay_save_failed\t\{encode_wire_field(path)}\t\{encode_wire_field(reason)}"
     ProtocolError(reason) =>
       "event_protocol_error\t\{encode_wire_field(reason)}"
   }
@@ -157,6 +160,11 @@ pub fn ServerEvent::from_wire_text(frame : String) -> ServerEvent? {
         Some(path) => Some(ReplaySaved(path))
         None => None
       }
+    ["event_replay_save_failed", path, reason] =>
+      match (decode_wire_field(path), decode_wire_field(reason)) {
+        (Some(path), Some(reason)) => Some(ReplaySaveFailed(path, reason))
+        _ => None
+      }
     ["event_protocol_error", reason] =>
       match decode_wire_field(reason) {
         Some(reason) => Some(ProtocolError(reason))
@@ -184,6 +192,7 @@ pub fn ServerEvent::summary(self : ServerEvent) -> String {
     PlayerDisconnected(side) => "\{side.label()} disconnected"
     MatchEnded(reason) => "match ended: \{reason}"
     ReplaySaved(path) => "replay saved: \{path}"
+    ReplaySaveFailed(path, reason) => "replay save failed: \{path} (\{reason})"
     ProtocolError(reason) => "protocol error: \{reason}"
   }
 }

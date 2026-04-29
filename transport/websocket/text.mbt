@@ -41,3 +41,12 @@ pub async fn send_text_once(url : String, text : String) -> String {
     }
   }
 }
+
+///|
+pub async fn send_text_once_with_timeout(
+  url : String,
+  text : String,
+  timeout_ms : Int,
+) -> String? {
+  @async.with_timeout_opt(timeout_ms, () => send_text_once(url, text))
+}

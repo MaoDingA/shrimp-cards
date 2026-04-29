@@ -11,6 +11,8 @@ pub(all) struct HandshakeServerConfig {
   replay_dir : String
   seed : Int
   created_at : String
+  heartbeat_timeout_ms : Int
+  heartbeat_scan_ms : Int
 } derive(Eq, Debug)
 
 ///|
@@ -19,7 +21,30 @@ pub fn HandshakeServerConfig::new(
   replay_dir~ : String,
   seed~ : Int,
 ) -> HandshakeServerConfig {
-  { match_id, replay_dir, seed, created_at: "local" }
+  {
+    match_id,
+    replay_dir,
+    seed,
+    created_at: "local",
+    heartbeat_timeout_ms: 30000,
+    heartbeat_scan_ms: 1000,
+  }
+}
+
+///|
+pub fn HandshakeServerConfig::with_heartbeat(
+  self : HandshakeServerConfig,
+  timeout_ms~ : Int,
+  scan_ms~ : Int,
+) -> HandshakeServerConfig {
+  {
+    match_id: self.match_id,
+    replay_dir: self.replay_dir,
+    seed: self.seed,
+    created_at: self.created_at,
+    heartbeat_timeout_ms: timeout_ms,
+    heartbeat_scan_ms: scan_ms,
+  }
 }
 
 ///|
@@ -95,6 +120,27 @@ fn includes_match_end(events : Array[@protocol.ServerEvent]) -> Bool {
 }
 
 ///|
+fn input_side_from_frame(frame : String) -> @protocol.Side? {
+  match @protocol.ClientInput::from_wire_text(frame) {
+    Some(@protocol.Heartbeat(side)) => Some(side)
+    Some(@protocol.Ready(side)) => Some(side)
+    Some(@protocol.Leave(side)) => Some(side)
+    Some(@protocol.LockWindow(side, _)) => Some(side)
+    Some(@protocol.SubmitIntervention(intervention)) => Some(intervention.side)
+    None => None
+  }
+}
+
+///|
+fn input_response_is_accepted(reply : String) -> Bool {
+  match @protocol.InputResponse::from_wire_text(reply) {
+    Some(@protocol.InputRejected(_)) => false
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
 async fn publish_events(
   clients : Array[ClientConn],
   journal : @replay.ReplayEventJournal,
@@ -115,12 +161,22 @@ async fn save_replay_and_publish(
   log : (String) -> Unit,
 ) -> Unit {
   let replay_path = config.replay_path()
-  let event = @protocol.ReplaySaved(replay_path)
-  ignore(journal.append(event))
-  journal.to_event_log(config.replay_header()).save(replay_path) catch {
-    _ => ()
+  let saved = @protocol.ReplaySaved(replay_path)
+  try {
+    journal
+    .to_event_log_with_event(config.replay_header(), saved)
+    .save(replay_path)
+    ignore(journal.append(saved))
+    broadcast_events(clients, [saved], log)
+  } catch {
+    _ => {
+      let failed = @protocol.ReplaySaveFailed(
+        replay_path, "could not write replay",
+      )
+      ignore(journal.append(failed))
+      broadcast_events(clients, [failed], log)
+    }
   }
-  broadcast_events(clients, [event], log)
 }
 
 ///|
@@ -134,6 +190,31 @@ async fn publish_outcome_events(
   publish_events(clients, journal, events, log)
   if includes_match_end(events) {
     save_replay_and_publish(clients, journal, config, log)
+  }
+}
+
+///|
+async fn publish_timeout_events(
+  clients : Array[ClientConn],
+  journal : @replay.ReplayEventJournal,
+  session : @host.MatchSession,
+  activity : ConnectionActivity,
+  config : HandshakeServerConfig,
+  log : (String) -> Unit,
+) -> Unit {
+  if config.heartbeat_timeout_ms > 0 && config.heartbeat_scan_ms > 0 {
+    for ;; {
+      @async.sleep(config.heartbeat_scan_ms)
+      let events : Array[@protocol.ServerEvent] = []
+      for side in activity.expired_sides(@async.now()) {
+        for event in session.handle_disconnect(side) {
+          events.push(event)
+        }
+      }
+      if !events.is_empty() {
+        publish_outcome_events(clients, journal, events, config, log)
+      }
+    }
   }
 }
 
@@ -172,56 +253,74 @@ pub async fn run_handshake_server_with_config(
 ) -> Unit {
   let session = @host.MatchSession::new()
   let journal = @replay.ReplayEventJournal::new()
+  let activity = ConnectionActivity::new(timeout_ms=config.heartbeat_timeout_ms)
   let clients : Array[ClientConn] = []
   let mut next_client_id = 1
-  server.run_forever((request, _, conn) => {
-    let ws = @raw_ws.from_http_server(request, conn)
-    let client_id = next_client_id
-    next_client_id += 1
-    let client : ClientConn = { id: client_id, conn: ws, side: None }
-    clients.push(client)
-    defer {
-      clients.retain(client => client.id != client_id)
-      ws.close()
-    }
-    try {
-      for ;; {
-        let msg = ws.recv()
-        match msg.kind {
-          Text => {
-            let frame = msg.read_all().text()
-            match @protocol.EventSubscription::from_wire_text(frame) {
-              Some(subscription) =>
-                send_replay_events(ws, journal, subscription)
-              None => {
-                let outcome = session.handle_frame_outcome(frame)
-                ws.send_text(outcome.reply_text())
-                log(outcome.reply_text())
-                let events = outcome.server_events()
-                match assigned_side(events) {
-                  Some(side) => client.side = Some(side)
-                  None => ()
+  @async.with_task_group(group => {
+    group.spawn_bg(no_wait=true, () => {
+      publish_timeout_events(clients, journal, session, activity, config, log)
+    })
+    server.run_forever((request, _, conn) => {
+      let ws = @raw_ws.from_http_server(request, conn)
+      let client_id = next_client_id
+      next_client_id += 1
+      let client : ClientConn = { id: client_id, conn: ws, side: None }
+      clients.push(client)
+      defer {
+        clients.retain(client => client.id != client_id)
+        ws.close()
+      }
+      try {
+        for ;; {
+          let msg = ws.recv()
+          match msg.kind {
+            Text => {
+              let frame = msg.read_all().text()
+              match @protocol.EventSubscription::from_wire_text(frame) {
+                Some(subscription) =>
+                  send_replay_events(ws, journal, subscription)
+                None => {
+                  let input_side = input_side_from_frame(frame)
+                  let outcome = session.handle_frame_outcome(frame)
+                  let reply = outcome.reply_text()
+                  ws.send_text(reply)
+                  log(reply)
+                  match input_side {
+                    Some(side) =>
+                      if input_response_is_accepted(reply) {
+                        activity.mark_seen(side, @async.now())
+                      }
+                    None => ()
+                  }
+                  let events = outcome.server_events()
+                  match assigned_side(events) {
+                    Some(side) => {
+                      client.side = Some(side)
+                      activity.mark_seen(side, @async.now())
+                    }
+                    None => ()
+                  }
+                  publish_outcome_events(clients, journal, events, config, log)
                 }
-                publish_outcome_events(clients, journal, events, config, log)
               }
             }
-          }
-          Binary => {
-            ignore(msg.read_all().binary())
-            ws.send_close(code=UnsupportedData, reason="text frames only")
+            Binary => {
+              ignore(msg.read_all().binary())
+              ws.send_close(code=UnsupportedData, reason="text frames only")
+            }
           }
         }
+      } catch {
+        @raw_ws.ConnectionClosed(_, _) =>
+          match client.side {
+            Some(side) => {
+              let events = session.handle_disconnect(side)
+              publish_outcome_events(clients, journal, events, config, log)
+            }
+            None => ()
+          }
+        _ => ()
       }
-    } catch {
-      @raw_ws.ConnectionClosed(_, _) =>
-        match client.side {
-          Some(side) => {
-            let events = session.handle_disconnect(side)
-            publish_outcome_events(clients, journal, events, config, log)
-          }
-          None => ()
-        }
-      _ => ()
-    }
+    })
   })
 }

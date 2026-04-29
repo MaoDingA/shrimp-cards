@@ -20,10 +20,13 @@ pub(all) struct HandshakeServerConfig {
   replay_dir : String
   seed : Int
   created_at : String
+  heartbeat_timeout_ms : Int
+  heartbeat_scan_ms : Int
 } derive(Eq, @debug.Debug)
 pub fn HandshakeServerConfig::new(match_id~ : String, replay_dir~ : String, seed~ : Int) -> Self
 pub fn HandshakeServerConfig::replay_header(Self) -> @replay.ReplayHeader
 pub fn HandshakeServerConfig::replay_path(Self) -> String
+pub fn HandshakeServerConfig::with_heartbeat(Self, timeout_ms~ : Int, scan_ms~ : Int) -> Self
 
 // Type aliases
 

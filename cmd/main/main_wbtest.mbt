@@ -47,6 +47,33 @@ test "player host event summary hides opponent agent plan" {
 }
 
 ///|
+test "player host event summary surfaces communication errors" {
+  match
+    visible_host_message_summary(
+      @client_ws.EventMessage(@protocol.ProtocolError("invalid input")),
+      @protocol.A,
+    ) {
+    Some(summary) => assert_eq(summary, "event protocol error: invalid input")
+    None => fail("expected protocol error summary")
+  }
+  match
+    visible_host_message_summary(
+      @client_ws.EventMessage(
+        @protocol.ReplaySaveFailed(
+          "replays/match.json", "could not write replay",
+        ),
+      ),
+      @protocol.A,
+    ) {
+    Some(summary) =>
+      assert_eq(
+        summary, "event replay save failed: replays/match.json (could not write replay)",
+      )
+    None => fail("expected replay save failure summary")
+  }
+}
+
+///|
 test "terminal screen renderer uses v7 decision spine" {
   let state = TerminalViewState::new(@protocol.A)
   state.apply_host_message(
@@ -159,7 +186,7 @@ test "replay command formats metadata and window views" {
     ],
   )
   assert_eq(replay_metadata_lines(log), [
-    "replay match-1 metadata", "created_at 2026-04-28T00:00:00Z", "seed 42", "protocol 2",
+    "replay match-1 metadata", "created_at 2026-04-28T00:00:00Z", "seed 42", "protocol 3",
     "format 1", "events 4",
   ])
   assert_eq(replay_window_lines(log, "A"), [

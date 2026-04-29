@@ -22,6 +22,7 @@ pub fn ReplayEventJournal::append(Self, @protocol.ServerEvent) -> ReplayEventRec
 pub fn ReplayEventJournal::new() -> Self
 pub fn ReplayEventJournal::records_from(Self, Int) -> Array[ReplayEventRecord]
 pub fn ReplayEventJournal::to_event_log(Self, ReplayHeader) -> ReplayEventLog
+pub fn ReplayEventJournal::to_event_log_with_event(Self, ReplayHeader, @protocol.ServerEvent) -> ReplayEventLog
 
 pub struct ReplayEventLog {
   // private fields

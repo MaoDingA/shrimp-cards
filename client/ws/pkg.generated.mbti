@@ -12,6 +12,8 @@ pub async fn connect_live(@client.ClientConfig) -> LiveJoin
 
 pub async fn join_once(@client.ClientConfig) -> @protocol.JoinResponse
 
+pub async fn send_heartbeat_once(String, @protocol.Side, Int) -> Bool
+
 pub async fn send_input_once(String, @protocol.ClientInput) -> @protocol.InputResponse
 
 pub async fn subscribe_events(String, Int) -> LiveSession
@@ -39,6 +41,7 @@ pub struct LiveSession {
 }
 pub fn LiveSession::close(Self) -> Unit
 pub async fn LiveSession::recv_message(Self) -> HostMessage
+pub async fn LiveSession::send_heartbeat_loop(Self, @protocol.Side, Int) -> Unit
 pub async fn LiveSession::send_input(Self, @protocol.ClientInput) -> Unit
 
 // Type aliases

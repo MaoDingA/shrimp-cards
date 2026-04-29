@@ -1,6 +1,6 @@
 ///|
 test "protocol exposes stable version and side labels" {
-  assert_eq(protocol_version, 2)
+  assert_eq(protocol_version, 3)
   assert_eq(A.label(), "A")
   assert_eq(B.label(), "B")
 }
@@ -109,6 +109,15 @@ test "client ready and leave inputs round trip wire text" {
 }
 
 ///|
+test "client heartbeat input round trips wire text" {
+  let input = Heartbeat(A)
+  match ClientInput::from_wire_text(input.to_wire_text()) {
+    Some(Heartbeat(side)) => assert_true(side == A)
+    _ => fail("expected heartbeat input")
+  }
+}
+
+///|
 test "client intervention input round trips wire text" {
   let intervention = Intervention::new(
     side=A,
@@ -148,6 +157,15 @@ test "host input response round trips window opened" {
   match InputResponse::from_wire_text(response.to_wire_text()) {
     Some(WindowOpened(window_id)) => assert_true(window_id == WindowId::new(1))
     _ => fail("expected window opened response")
+  }
+}
+
+///|
+test "host input response round trips heartbeat acknowledgement" {
+  let response = HeartbeatAck(B)
+  match InputResponse::from_wire_text(response.to_wire_text()) {
+    Some(HeartbeatAck(side)) => assert_true(side == B)
+    _ => fail("expected heartbeat acknowledgement")
   }
 }
 
@@ -228,6 +246,14 @@ test "server lifecycle events round trip wire text" {
   match ServerEvent::from_wire_text(saved.to_wire_text()) {
     Some(ReplaySaved(path)) => assert_eq(path, "replays/match\t1.json")
     _ => fail("expected replay saved event")
+  }
+  let save_failed = ReplaySaveFailed("replays/match\t1.json", "write failed")
+  match ServerEvent::from_wire_text(save_failed.to_wire_text()) {
+    Some(ReplaySaveFailed(path, reason)) => {
+      assert_eq(path, "replays/match\t1.json")
+      assert_eq(reason, "write failed")
+    }
+    _ => fail("expected replay save failed event")
   }
   let error = ProtocolError("invalid\tinput")
   match ServerEvent::from_wire_text(error.to_wire_text()) {

@@ -119,6 +119,27 @@ test "match session handles leave input" {
 }
 
 ///|
+test "match session acknowledges heartbeat for seated side" {
+  let session = MatchSession::new()
+  ignore(
+    session.handle_frame(
+      @protocol.JoinRequest::new("p1", "Alice").to_wire_text(),
+    ),
+  )
+  let outcome = session.handle_frame_outcome(
+    @protocol.Heartbeat(@protocol.A).to_wire_text(),
+  )
+  match @protocol.InputResponse::from_wire_text(outcome.reply_text()) {
+    Some(@protocol.HeartbeatAck(side)) => assert_true(side == @protocol.A)
+    _ => fail("expected heartbeat ack")
+  }
+  match outcome.server_events() {
+    [] => ()
+    _ => fail("heartbeat should not create replay events")
+  }
+}
+
+///|
 test "match session emits public event when player joins" {
   let session = MatchSession::new()
   let events = session.handle_frame_events(

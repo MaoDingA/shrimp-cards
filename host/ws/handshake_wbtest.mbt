@@ -167,6 +167,24 @@ async fn recv_match_end_reason(conn : @raw_ws.Conn) -> String? {
 }
 
 ///|
+async fn recv_match_started(conn : @raw_ws.Conn) -> Unit? {
+  match recv_event(conn) {
+    Some(@protocol.MatchStarted) => Some(())
+    Some(_) => recv_match_started(conn)
+    None => None
+  }
+}
+
+///|
+async fn recv_window_opened(conn : @raw_ws.Conn) -> @protocol.WindowId? {
+  match recv_event(conn) {
+    Some(@protocol.InputWindowOpened(window_id)) => Some(window_id)
+    Some(_) => recv_window_opened(conn)
+    None => None
+  }
+}
+
+///|
 test "connection activity expires stale side once" {
   let activity = ConnectionActivity::new(timeout_ms=100)
   activity.mark_seen(@protocol.A, 1000)
@@ -281,6 +299,38 @@ async test "websocket host broadcasts events to connected clients" {
       Some(@protocol.InputWindowOpened(window_id)) =>
         assert_true(window_id == @protocol.WindowId::new(1))
       _ => fail("expected window event for Bob")
+    }
+  })
+}
+
+///|
+async test "websocket host serializes concurrent ready broadcasts" {
+  @async.with_task_group(group => {
+    let server = @http.Server(@socket.Addr::parse("127.0.0.1:0"))
+    let addr = server.addr
+    group.spawn_bg(no_wait=true, () => run_handshake_server(server, _ => ()))
+    @async.sleep(50)
+    let url = "ws://localhost:\{addr.port()}/match"
+    let alice = @raw_ws.connect(url)
+    defer alice.close()
+    alice.send_text(@protocol.JoinRequest::new("p1", "Alice").to_wire_text())
+    ignore(recv_join(alice))
+    ignore(recv_event(alice))
+    let bob = @raw_ws.connect(url)
+    defer bob.close()
+    bob.send_text(@protocol.JoinRequest::new("p2", "Bob").to_wire_text())
+    ignore(recv_join(bob))
+    ignore(recv_event(alice))
+    ignore(recv_event(bob))
+    alice.send_text(@protocol.Ready(@protocol.A).to_wire_text())
+    bob.send_text(@protocol.Ready(@protocol.B).to_wire_text())
+    match recv_match_started(alice) {
+      Some(_) => ()
+      None => fail("expected concurrent ready frames to start match")
+    }
+    match recv_window_opened(alice) {
+      Some(window_id) => assert_true(window_id == @protocol.WindowId::new(1))
+      None => fail("expected concurrent ready frames to open window")
     }
   })
 }

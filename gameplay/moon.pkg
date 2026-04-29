@@ -1,4 +1,3 @@
 import {
-  "MaoDingA/shrimp_cards/gameplay" @gameplay,
   "MaoDingA/shrimp_cards/protocol" @protocol,
 }

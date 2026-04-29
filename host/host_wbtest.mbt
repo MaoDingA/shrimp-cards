@@ -283,7 +283,7 @@ test "match session ends on player disconnect after start" {
 }
 
 ///|
-test "match session locks window executes placeholder and opens next window" {
+test "match session locks window executes minimal gameplay and opens next window" {
   let session = MatchSession::new()
   ignore(
     session.handle_frame_events(
@@ -326,12 +326,20 @@ test "match session locks window executes placeholder and opens next window" {
       assert_true(locked == @protocol.WindowId::new(1))
       assert_true(final_a.side == @protocol.A)
       assert_true(final_a.phase == @protocol.FinalPlan)
+      assert_eq(final_a.plan, "fake-action-A")
+      assert_eq(final_a.reason, "minimal action with 1 intervention")
       assert_true(final_b.side == @protocol.B)
       assert_true(final_b.phase == @protocol.FinalPlan)
+      assert_eq(final_b.plan, "fake-action-B")
+      assert_eq(final_b.reason, "minimal action with 0 interventions")
       assert_true(executed == @protocol.WindowId::new(1))
       assert_true(next == @protocol.WindowId::new(2))
       assert_true(initial_a.phase == @protocol.InitialPlan)
+      assert_eq(initial_a.plan, "observe fake-action-A")
+      assert_eq(initial_a.reason, "seed 0 step 1 energy A=1 B=1")
       assert_true(initial_b.phase == @protocol.InitialPlan)
+      assert_eq(initial_b.plan, "observe fake-action-B")
+      assert_eq(initial_b.reason, "seed 0 step 1 energy A=1 B=1")
     }
     _ => fail("expected lock, final plans, execution and next window")
   }

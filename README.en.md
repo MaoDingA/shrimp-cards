@@ -12,9 +12,11 @@
 Shrimp Cards is a terminal-first MoonBit card-game foundation for PvE and PvP
 experiments. The current code focuses on non-gameplay infrastructure: local
 host/client communication, live intervention windows, replay recording, and
-agent plan placeholders.
+agent planning flow.
 
-Gameplay rules are intentionally not defined yet.
+Gameplay rules are intentionally not defined yet. The code only includes a tiny
+fake/minimal ruleset to prove that the gameplay slot, agent plans, and replay
+pipeline are connected.
 
 ## Current Architecture
 
@@ -30,7 +32,9 @@ flowchart TD
 
   ClientWS <--> HostWS["host/ws WebSocket server"]
   HostWS --> Session["host MatchSession"]
-  Session --> Protocol["protocol: ClientInput / ServerEvent / AgentPlan"]
+  Session --> Gameplay["gameplay: minimal fake ruleset"]
+  Gameplay --> Protocol["protocol: ClientInput / ServerEvent / AgentPlan"]
+  Session --> Protocol
 
   HostWS --> Journal["ReplayEventJournal"]
   Journal --> ReplayFile["replays/*.json"]
@@ -45,8 +49,8 @@ flowchart TD
 The `host` is the only authoritative state owner. Player clients only send input
 messages. Player terminals and the replay viewer both pass through the same
 `visibility` filter so hidden information is not decided in UI code. The current
-replay is an event stream; gameplay, cards, and combat resolution are not wired
-in yet.
+replay is an event stream; real gameplay, cards, and combat resolution are not
+wired in yet.
 
 ## Requirements
 
@@ -137,8 +141,8 @@ Useful supervisor commands in each player terminal:
 
 The match opens the first intervention window after both players send
 `/ready`. `/prefer` and `/ban` add supervisor interventions. `/lock` closes the
-current window, emits final placeholder plans, executes a placeholder step, and
-opens the next window. `/leave` ends the match and saves the replay. `/lang`
+current window, emits fake/minimal final plans, executes one minimal ruleset
+step, and opens the next window. `/leave` ends the match and saves the replay. `/lang`
 changes only the current client display language; it is not sent to the host and
 does not alter replay data.
 

@@ -11,9 +11,9 @@
 
 小虾牌是一个终端优先的 MoonBit 卡牌游戏基础项目，用来支持 PvE 和 PvP
 实验。当前代码重点放在玩法以外的基础设施：本地 host/client 通信、实时干预窗口、replay
-记录，以及 agent 计划占位流程。
+记录，以及 agent 计划流程。
 
-玩法规则目前仍然刻意留空，后续再单独设计。
+玩法规则目前仍然刻意留空，后续再单独设计。代码里只有一个极小的 fake/minimal ruleset，用来验证玩法插槽、agent plan 和 replay 主链路已经打通。
 
 ## 当前架构
 
@@ -29,7 +29,9 @@ flowchart TD
 
   ClientWS <--> HostWS["host/ws WebSocket server"]
   HostWS --> Session["host MatchSession"]
-  Session --> Protocol["protocol: ClientInput / ServerEvent / AgentPlan"]
+  Session --> Gameplay["gameplay: minimal fake ruleset"]
+  Gameplay --> Protocol["protocol: ClientInput / ServerEvent / AgentPlan"]
+  Session --> Protocol
 
   HostWS --> Journal["ReplayEventJournal"]
   Journal --> ReplayFile["replays/*.json"]
@@ -42,7 +44,7 @@ flowchart TD
 ```
 
 `host` 是唯一权威状态来源。player client 只发送输入消息；玩家终端和 replay viewer
-都通过同一层 `visibility` 过滤隐藏信息。当前 replay 是公开事件流，玩法、卡牌和结算规则还没有接入。
+都通过同一层 `visibility` 过滤隐藏信息。当前 replay 是公开事件流，正式玩法、卡牌和结算规则还没有接入。
 
 ## 环境要求
 
@@ -132,7 +134,7 @@ moon run cmd/main --target native -- join \
 ```
 
 双方玩家都发送 `/ready` 后，对局会打开第一个干预窗口。`/prefer` 和 `/ban`
-用于提交监督干预。`/lock` 会关闭当前窗口，生成占位的最终计划，执行一个占位步骤，然后打开下一个窗口。`/leave`
+用于提交监督干预。`/lock` 会关闭当前窗口，生成 fake/minimal 最终计划，执行一个最小规则集步骤，然后打开下一个窗口。`/leave`
 会结束对局并保存 replay。`/lang` 只切换当前客户端的显示语言，不会发送给 host，也不会改变 replay 数据。
 
 ## Replay

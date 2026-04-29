@@ -2,6 +2,7 @@
 priv struct ClientConn {
   id : Int
   conn : @raw_ws.Conn
+  send_lock : @async.Semaphore
   mut side : @protocol.Side?
 }
 
@@ -79,6 +80,15 @@ pub fn HandshakeServerConfig::replay_header(
 }
 
 ///|
+async fn ClientConn::send_text(self : ClientConn, frame : String) -> Unit {
+  self.send_lock.acquire()
+  defer self.send_lock.release()
+  self.conn.send_text(frame) catch {
+    _ => ()
+  }
+}
+
+///|
 async fn broadcast_events(
   clients : Array[ClientConn],
   events : Array[@protocol.ServerEvent],
@@ -87,9 +97,7 @@ async fn broadcast_events(
   for event in events {
     let frame = event.to_wire_text()
     for client in clients {
-      client.conn.send_text(frame) catch {
-        _ => ()
-      }
+      client.send_text(frame)
     }
     log(frame)
   }
@@ -220,12 +228,12 @@ async fn publish_timeout_events(
 
 ///|
 async fn send_replay_events(
-  conn : @raw_ws.Conn,
+  client : ClientConn,
   journal : @replay.ReplayEventJournal,
   subscription : @protocol.EventSubscription,
 ) -> Unit {
   for record in journal.records_from(subscription.from_event_id) {
-    conn.send_text(record.event.to_wire_text())
+    client.send_text(record.event.to_wire_text())
   }
 }
 
@@ -251,7 +259,7 @@ pub async fn run_handshake_server_with_config(
   config : HandshakeServerConfig,
   log : (String) -> Unit,
 ) -> Unit {
-  let session = @host.MatchSession::new()
+  let session = @host.MatchSession::new_with_seed(seed=config.seed)
   let journal = @replay.ReplayEventJournal::new()
   let activity = ConnectionActivity::new(timeout_ms=config.heartbeat_timeout_ms)
   let clients : Array[ClientConn] = []
@@ -264,7 +272,12 @@ pub async fn run_handshake_server_with_config(
       let ws = @raw_ws.from_http_server(request, conn)
       let client_id = next_client_id
       next_client_id += 1
-      let client : ClientConn = { id: client_id, conn: ws, side: None }
+      let client : ClientConn = {
+        id: client_id,
+        conn: ws,
+        send_lock: @async.Semaphore::new(1),
+        side: None,
+      }
       clients.push(client)
       defer {
         clients.retain(client => client.id != client_id)
@@ -278,12 +291,12 @@ pub async fn run_handshake_server_with_config(
               let frame = msg.read_all().text()
               match @protocol.EventSubscription::from_wire_text(frame) {
                 Some(subscription) =>
-                  send_replay_events(ws, journal, subscription)
+                  send_replay_events(client, journal, subscription)
                 None => {
                   let input_side = input_side_from_frame(frame)
                   let outcome = session.handle_frame_outcome(frame)
                   let reply = outcome.reply_text()
-                  ws.send_text(reply)
+                  client.send_text(reply)
                   log(reply)
                   match input_side {
                     Some(side) =>

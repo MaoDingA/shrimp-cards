@@ -7,10 +7,16 @@ pub(all) struct MatchSession {
   mut ended : Bool
   mut current_window_id : @protocol.WindowId?
   mut current_interventions : Array[@protocol.Intervention]
+  mut game_state : @gameplay.GameState
 } derive(Eq, Debug)
 
 ///|
 pub fn MatchSession::new() -> MatchSession {
+  MatchSession::new_with_seed(seed=0)
+}
+
+///|
+pub fn MatchSession::new_with_seed(seed~ : Int) -> MatchSession {
   {
     lobby: Lobby::new(),
     side_a_ready: false,
@@ -19,6 +25,7 @@ pub fn MatchSession::new() -> MatchSession {
     ended: false,
     current_window_id: None,
     current_interventions: [],
+    game_state: @gameplay.GameState::initial(seed~),
   }
 }
 
@@ -55,45 +62,55 @@ fn MatchSession::next_window(self : MatchSession) -> @protocol.WindowId {
 }
 
 ///|
-fn placeholder_plan(
+fn MatchSession::interventions_for_side(
+  self : MatchSession,
   side : @protocol.Side,
-  window_id : @protocol.WindowId,
-  phase : @protocol.AgentPlanPhase,
-  intervention_count : Int,
-) -> @protocol.AgentPlan {
-  match phase {
-    @protocol.InitialPlan =>
-      @protocol.AgentPlan::new(
-        side~,
-        window_id~,
-        phase~,
-        plan="hold placeholder action",
-        reason="no gameplay rules loaded",
-      )
-    @protocol.FinalPlan =>
-      @protocol.AgentPlan::new(
-        side~,
-        window_id~,
-        phase~,
-        plan="execute placeholder action",
-        reason="\{intervention_count} supervisor interventions collected",
-      )
+) -> Array[@protocol.Intervention] {
+  let interventions : Array[@protocol.Intervention] = []
+  for intervention in self.current_interventions {
+    if intervention.side == side {
+      interventions.push(intervention)
+    }
   }
+  interventions
 }
 
 ///|
-fn agent_plan_events(
+fn MatchSession::initial_plan(
+  self : MatchSession,
+  side : @protocol.Side,
   window_id : @protocol.WindowId,
-  phase : @protocol.AgentPlanPhase,
-  intervention_count : Int,
+) -> @protocol.AgentPlan {
+  let observation = self.game_state.observe(side, window_id)
+  let action = self.game_state.fake_action(side, window_id, [])
+  @protocol.AgentPlan::new(
+    side~,
+    window_id~,
+    phase=@protocol.InitialPlan,
+    plan="observe \{action.label}",
+    reason=observation.state_summary,
+  )
+}
+
+///|
+fn final_plan_from_action(action : @gameplay.GameAction) -> @protocol.AgentPlan {
+  @protocol.AgentPlan::new(
+    side=action.side,
+    window_id=action.window_id,
+    phase=@protocol.FinalPlan,
+    plan=action.label,
+    reason=action.detail,
+  )
+}
+
+///|
+fn MatchSession::initial_plan_events(
+  self : MatchSession,
+  window_id : @protocol.WindowId,
 ) -> Array[@protocol.ServerEvent] {
   [
-    @protocol.AgentPlanIssued(
-      placeholder_plan(@protocol.A, window_id, phase, intervention_count),
-    ),
-    @protocol.AgentPlanIssued(
-      placeholder_plan(@protocol.B, window_id, phase, intervention_count),
-    ),
+    @protocol.AgentPlanIssued(self.initial_plan(@protocol.A, window_id)),
+    @protocol.AgentPlanIssued(self.initial_plan(@protocol.B, window_id)),
   ]
 }
 
@@ -107,7 +124,7 @@ fn MatchSession::open_window_events(
   let events : Array[@protocol.ServerEvent] = [
     @protocol.InputWindowOpened(window_id),
   ]
-  for event in agent_plan_events(window_id, @protocol.InitialPlan, 0) {
+  for event in self.initial_plan_events(window_id) {
     events.push(event)
   }
   events
@@ -353,18 +370,25 @@ pub fn MatchSession::lock_current_window(
     match self.current_window_id {
       None => []
       Some(window_id) => {
-        let intervention_count = self.current_interventions.length()
         let events : Array[@protocol.ServerEvent] = [
           @protocol.WindowLocked(window_id),
         ]
-        for
-          event in agent_plan_events(
-            window_id,
-            @protocol.FinalPlan,
-            intervention_count,
-          ) {
-          events.push(event)
-        }
+        let action_a = self.game_state.fake_action(
+          @protocol.A,
+          window_id,
+          self.interventions_for_side(@protocol.A),
+        )
+        let action_b = self.game_state.fake_action(
+          @protocol.B,
+          window_id,
+          self.interventions_for_side(@protocol.B),
+        )
+        events.push(@protocol.AgentPlanIssued(final_plan_from_action(action_a)))
+        events.push(@protocol.AgentPlanIssued(final_plan_from_action(action_b)))
+        let result = self.game_state.resolve_window(window_id, [
+          action_a, action_b,
+        ])
+        self.game_state = result.state
         events.push(@protocol.WindowExecuted(window_id))
         for event in self.open_window_events(self.next_window()) {
           events.push(event)

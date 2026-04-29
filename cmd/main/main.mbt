@@ -170,7 +170,10 @@ async fn run_join(options : @cli.JoinOptions) -> Unit {
       print_terminal_screen(terminal, lang)
       @async.with_task_group(group => {
         group.spawn_bg(no_wait=true, () => {
-          live.session.send_heartbeat_loop(player.side, 5000)
+          live.session.send_heartbeat_loop(
+            player.side,
+            options.heartbeat_interval_ms,
+          )
         })
         group.spawn_bg(no_wait=true, () => {
           try {
@@ -326,6 +329,9 @@ async fn main {
         match_id=options.match_id,
         replay_dir=options.replay_dir,
         seed=options.seed,
+      ).with_heartbeat(
+        timeout_ms=options.heartbeat_timeout_ms,
+        scan_ms=options.heartbeat_scan_ms,
       )
       println(
         "host started ws://\{options.bind_host}:\{options.port}/match match \{options.match_id} replay \{config.replay_path()}",

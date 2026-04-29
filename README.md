@@ -42,6 +42,13 @@ moon run cmd/main --target native -- host \
   --replay-dir replays
 ```
 
+可选心跳参数：
+
+```sh
+--heartbeat-timeout-ms 30000
+--heartbeat-scan-ms 1000
+```
+
 在第二个终端加入玩家 A：
 
 ```sh
@@ -49,6 +56,12 @@ moon run cmd/main --target native -- join \
   --name Alice \
   --lang zh \
   --host ws://127.0.0.1:7777/match
+```
+
+可选心跳参数：
+
+```sh
+--heartbeat-interval-ms 5000
 ```
 
 在第三个终端加入玩家 B：

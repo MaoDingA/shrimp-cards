@@ -32,6 +32,33 @@ async test "websocket host accepts two join clients" {
 }
 
 ///|
+async test "websocket host rejects incompatible join protocol version" {
+  @async.with_task_group(group => {
+    let server = @http.Server(@socket.Addr::parse("127.0.0.1:0"))
+    let addr = server.addr
+    group.spawn_bg(no_wait=true, () => run_handshake_server(server, _ => ()))
+    @async.sleep(50)
+    let conn = @raw_ws.connect("ws://localhost:\{addr.port()}/match")
+    defer conn.close()
+    let request = @protocol.JoinRequest::{
+      player_id: "old-client",
+      display_name: "Old Client",
+      protocol_version: @protocol.protocol_version - 1,
+    }
+    conn.send_text(request.to_wire_text())
+    match recv_join(conn) {
+      Some(@protocol.JoinRejected(reason)) =>
+        assert_eq(reason, "protocol version mismatch")
+      _ => fail("expected incompatible client to be rejected")
+    }
+    match recv_event(conn) {
+      None => ()
+      Some(_) => fail("rejected join should not publish player event")
+    }
+  })
+}
+
+///|
 async test "websocket host opens input window after both ready frames" {
   @async.with_task_group(group => {
     let server = @http.Server(@socket.Addr::parse("127.0.0.1:0"))

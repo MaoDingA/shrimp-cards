@@ -43,6 +43,13 @@ moon run cmd/main --target native -- host \
   --replay-dir replays
 ```
 
+Optional heartbeat parameters:
+
+```sh
+--heartbeat-timeout-ms 30000
+--heartbeat-scan-ms 1000
+```
+
 Join as player A in a second terminal:
 
 ```sh
@@ -50,6 +57,12 @@ moon run cmd/main --target native -- join \
   --name Alice \
   --lang zh \
   --host ws://127.0.0.1:7777/match
+```
+
+Optional heartbeat parameter:
+
+```sh
+--heartbeat-interval-ms 5000
 ```
 
 Join as player B in a third terminal:

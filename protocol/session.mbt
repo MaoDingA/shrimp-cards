@@ -82,8 +82,9 @@ pub(all) enum JoinResponse {
 pub fn JoinResponse::to_wire_text(self : JoinResponse) -> String {
   match self {
     JoinAccepted(player) =>
-      "accepted\t\{encode_wire_field(player.player_id)}\t\{encode_wire_field(player.display_name)}\t\{player.side.label()}"
-    JoinRejected(reason) => "rejected\t\{encode_wire_field(reason)}"
+      "accepted\t\{protocol_version}\t\{encode_wire_field(player.player_id)}\t\{encode_wire_field(player.display_name)}\t\{player.side.label()}"
+    JoinRejected(reason) =>
+      "rejected\t\{protocol_version}\t\{encode_wire_field(reason)}"
   }
 }
 
@@ -99,21 +100,38 @@ fn side_from_label(label : String) -> Side? {
 ///|
 pub fn JoinResponse::from_wire_text(frame : String) -> JoinResponse? {
   match split_wire_text(frame) {
-    ["accepted", player_id, display_name, side_label] =>
-      match
-        (
-          decode_wire_field(player_id),
-          decode_wire_field(display_name),
-          side_from_label(side_label),
-        ) {
-        (Some(player_id), Some(display_name), Some(side)) =>
-          Some(JoinAccepted(PlayerIdentity::new(player_id, display_name, side)))
-        _ => None
-      }
-    ["rejected", reason] =>
-      match decode_wire_field(reason) {
-        Some(reason) => Some(JoinRejected(reason))
+    ["accepted", version, player_id, display_name, side_label] =>
+      match parse_version(version) {
+        Some(version) =>
+          if version == protocol_version {
+            match
+              (
+                decode_wire_field(player_id),
+                decode_wire_field(display_name),
+                side_from_label(side_label),
+              ) {
+              (Some(player_id), Some(display_name), Some(side)) =>
+                Some(
+                  JoinAccepted(
+                    PlayerIdentity::new(player_id, display_name, side),
+                  ),
+                )
+              _ => None
+            }
+          } else {
+            Some(JoinRejected("protocol version mismatch"))
+          }
         None => None
+      }
+    ["rejected", version, reason] =>
+      match (parse_version(version), decode_wire_field(reason)) {
+        (Some(version), Some(reason)) =>
+          if version == protocol_version {
+            Some(JoinRejected(reason))
+          } else {
+            Some(JoinRejected("protocol version mismatch"))
+          }
+        _ => None
       }
     _ => None
   }

@@ -25,6 +25,8 @@ pub(all) struct HostOptions {
   match_id : String
   seed : Int
   replay_dir : String
+  heartbeat_timeout_ms : Int
+  heartbeat_scan_ms : Int
   debug : Bool
 } derive(Eq, @debug.Debug)
 
@@ -32,6 +34,7 @@ pub(all) struct JoinOptions {
   display_name : String
   host_url : String
   lang : String
+  heartbeat_interval_ms : Int
 } derive(Eq, @debug.Debug)
 
 pub(all) struct ReplayOptions {

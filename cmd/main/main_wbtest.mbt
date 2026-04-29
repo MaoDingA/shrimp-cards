@@ -186,7 +186,7 @@ test "replay command formats metadata and window views" {
     ],
   )
   assert_eq(replay_metadata_lines(log), [
-    "replay match-1 metadata", "created_at 2026-04-28T00:00:00Z", "seed 42", "protocol 3",
+    "replay match-1 metadata", "created_at 2026-04-28T00:00:00Z", "seed 42", "protocol 4",
     "format 1", "events 4",
   ])
   assert_eq(replay_window_lines(log, "A"), [

@@ -5,6 +5,8 @@ pub(all) struct HostOptions {
   match_id : String
   seed : Int
   replay_dir : String
+  heartbeat_timeout_ms : Int
+  heartbeat_scan_ms : Int
   debug : Bool
 } derive(Eq, Debug)
 
@@ -13,6 +15,7 @@ pub(all) struct JoinOptions {
   display_name : String
   host_url : String
   lang : String
+  heartbeat_interval_ms : Int
 } derive(Eq, Debug)
 
 ///|
@@ -76,6 +79,8 @@ pub fn parse_command(args : Array[String]) -> Command {
         match_id: option_value(args, "--match-id", "match-\{port}"),
         seed: option_int(args, "--seed", 0),
         replay_dir: option_value(args, "--replay-dir", "replays"),
+        heartbeat_timeout_ms: option_int(args, "--heartbeat-timeout-ms", 30000),
+        heartbeat_scan_ms: option_int(args, "--heartbeat-scan-ms", 1000),
         debug: has_flag(args, "--debug"),
       })
     }
@@ -84,6 +89,7 @@ pub fn parse_command(args : Array[String]) -> Command {
         display_name: option_value(args, "--name", "Player"),
         host_url: option_value(args, "--host", "ws://127.0.0.1:7777/match"),
         lang: option_value(args, "--lang", "zh"),
+        heartbeat_interval_ms: option_int(args, "--heartbeat-interval-ms", 5000),
       })
     Some("replay") =>
       Replay({

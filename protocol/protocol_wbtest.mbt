@@ -1,6 +1,6 @@
 ///|
 test "protocol exposes stable version and side labels" {
-  assert_eq(protocol_version, 3)
+  assert_eq(protocol_version, 4)
   assert_eq(A.label(), "A")
   assert_eq(B.label(), "B")
 }
@@ -83,6 +83,9 @@ test "join response round trips accepted seat" {
   let response = JoinAccepted(
     PlayerIdentity::new("player\t1", "Alice\tTabbed", A),
   )
+  assert_true(
+    response.to_wire_text().has_prefix("accepted\t\{protocol_version}\t"),
+  )
   let decoded = JoinResponse::from_wire_text(response.to_wire_text())
   match decoded {
     Some(JoinAccepted(player)) => {
@@ -91,6 +94,16 @@ test "join response round trips accepted seat" {
       assert_true(player.side == A)
     }
     _ => fail("expected accepted response")
+  }
+}
+
+///|
+test "join response rejects incompatible host protocol version" {
+  let player = PlayerIdentity::new("player-1", "Alice", A)
+  let incompatible = "accepted\t\{protocol_version - 1}\t\{player.player_id.to_json().stringify()}\t\{player.display_name.to_json().stringify()}\tA"
+  match JoinResponse::from_wire_text(incompatible) {
+    Some(JoinRejected(reason)) => assert_eq(reason, "protocol version mismatch")
+    _ => fail("expected incompatible host response to be rejected")
   }
 }
 

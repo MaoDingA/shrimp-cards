@@ -16,6 +16,38 @@ agent plan placeholders.
 
 Gameplay rules are intentionally not defined yet.
 
+## Current Architecture
+
+```mermaid
+flowchart TD
+  PlayerA["Player A terminal"] --> JoinA["join + light TUI"]
+  PlayerB["Player B terminal"] --> JoinB["join + light TUI"]
+  Viewer["Post-match replay terminal"] --> ReplayCmd["replay command"]
+
+  JoinA --> ClientWS["client/ws LiveSession"]
+  JoinB --> ClientWS
+  ReplayCmd --> ReplayLoader["ReplayEventLog loader"]
+
+  ClientWS <--> HostWS["host/ws WebSocket server"]
+  HostWS --> Session["host MatchSession"]
+  Session --> Protocol["protocol: ClientInput / ServerEvent / AgentPlan"]
+
+  HostWS --> Journal["ReplayEventJournal"]
+  Journal --> ReplayFile["replays/*.json"]
+
+  HostWS --> Visibility["visibility filter"]
+  ReplayLoader --> Visibility
+  Visibility --> JoinA
+  Visibility --> JoinB
+  Visibility --> ReplayCmd
+```
+
+The `host` is the only authoritative state owner. Player clients only send input
+messages. Player terminals and the replay viewer both pass through the same
+`visibility` filter so hidden information is not decided in UI code. The current
+replay is an event stream; gameplay, cards, and combat resolution are not wired
+in yet.
+
 ## Requirements
 
 - MoonBit toolchain
@@ -31,7 +63,24 @@ moon test
 moon info --target native
 ```
 
+## Local Smoke Test
+
+Run a host, two player clients, the ready/leave flow, and replay validation:
+
+```sh
+scripts/smoke-local.sh
+```
+
 ## Run A Local Match
+
+Print command help:
+
+```sh
+moon run cmd/main --target native -- --help
+moon run cmd/main --target native -- host --help
+moon run cmd/main --target native -- join --help
+moon run cmd/main --target native -- replay --help
+```
 
 Start a host:
 

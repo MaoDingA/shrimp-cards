@@ -15,6 +15,35 @@
 
 玩法规则目前仍然刻意留空，后续再单独设计。
 
+## 当前架构
+
+```mermaid
+flowchart TD
+  PlayerA["玩家 A 终端"] --> JoinA["join + 轻 TUI"]
+  PlayerB["玩家 B 终端"] --> JoinB["join + 轻 TUI"]
+  Viewer["赛后观战终端"] --> ReplayCmd["replay 命令"]
+
+  JoinA --> ClientWS["client/ws LiveSession"]
+  JoinB --> ClientWS
+  ReplayCmd --> ReplayLoader["ReplayEventLog loader"]
+
+  ClientWS <--> HostWS["host/ws WebSocket server"]
+  HostWS --> Session["host MatchSession"]
+  Session --> Protocol["protocol: ClientInput / ServerEvent / AgentPlan"]
+
+  HostWS --> Journal["ReplayEventJournal"]
+  Journal --> ReplayFile["replays/*.json"]
+
+  HostWS --> Visibility["visibility filter"]
+  ReplayLoader --> Visibility
+  Visibility --> JoinA
+  Visibility --> JoinB
+  Visibility --> ReplayCmd
+```
+
+`host` 是唯一权威状态来源。player client 只发送输入消息；玩家终端和 replay viewer
+都通过同一层 `visibility` 过滤隐藏信息。当前 replay 是公开事件流，玩法、卡牌和结算规则还没有接入。
+
 ## 环境要求
 
 - MoonBit 工具链
@@ -30,7 +59,24 @@ moon test
 moon info --target native
 ```
 
+## 本地烟测
+
+自动运行 host、两个 player client、ready/leave 流程，并校验 replay：
+
+```sh
+scripts/smoke-local.sh
+```
+
 ## 运行本地对局
+
+查看命令帮助：
+
+```sh
+moon run cmd/main --target native -- --help
+moon run cmd/main --target native -- host --help
+moon run cmd/main --target native -- join --help
+moon run cmd/main --target native -- replay --help
+```
 
 启动 host：
 

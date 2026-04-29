@@ -342,6 +342,6 @@ async fn main {
     }
     Join(options) => run_join(options)
     Replay(options) => run_replay(options)
-    _ => println(@cli.parse_command(@env.args()).summary())
+    Help(topic) => print_lines(@cli.help_lines(topic))
   }
 }

@@ -82,3 +82,62 @@ test "parse replay command captures file and view" {
     _ => fail("expected replay command")
   }
 }
+
+///|
+fn assert_help_command(command : Command, expected : HelpTopic) -> Unit raise {
+  match command {
+    Help(topic) => assert_true(topic == expected)
+    _ => fail("expected help command")
+  }
+}
+
+///|
+test "parse root help flags without starting a command" {
+  assert_help_command(parse_command(["shrimp-cards"]), RootHelp)
+  assert_help_command(parse_command(["shrimp-cards", "--help"]), RootHelp)
+  assert_help_command(parse_command(["shrimp-cards", "-h"]), RootHelp)
+}
+
+///|
+test "parse subcommand help flags without starting a command" {
+  assert_help_command(
+    parse_command(["shrimp-cards", "host", "--help"]),
+    HostHelp,
+  )
+  assert_help_command(parse_command(["shrimp-cards", "join", "-h"]), JoinHelp)
+  assert_help_command(
+    parse_command(["shrimp-cards", "replay", "--help"]),
+    ReplayHelp,
+  )
+}
+
+///|
+test "help lines list stable commands and options" {
+  let root = help_lines(RootHelp)
+  assert_true(
+    root.contains("  host     Start the authoritative local match host"),
+  )
+  assert_true(root.contains("  join     Join the host as one player terminal"))
+  assert_true(root.contains("  replay   Print a saved replay"))
+  let host = help_lines(HostHelp)
+  assert_true(
+    host.contains(
+      "  --replay-dir <dir>               Replay directory (default: replays)",
+    ),
+  )
+  let join = help_lines(JoinHelp)
+  assert_true(
+    join.contains(
+      "  --lang <zh|en>                   Display language (default: zh)",
+    ),
+  )
+  assert_true(
+    join.contains("  /prefer <text>                   Guide the agent plan"),
+  )
+  let replay = help_lines(ReplayHelp)
+  assert_true(
+    replay.contains(
+      "  --mode <events|windows|metadata> Output mode (default: events)",
+    ),
+  )
+}

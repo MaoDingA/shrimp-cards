@@ -336,10 +336,10 @@ test "match session locks window executes minimal gameplay and opens next window
       assert_true(next == @protocol.WindowId::new(2))
       assert_true(initial_a.phase == @protocol.InitialPlan)
       assert_eq(initial_a.plan, "observe fake-action-A")
-      assert_eq(initial_a.reason, "seed 0 step 1 energy A=1 B=1")
+      assert_eq(initial_a.reason, "seed 0 step 1 A=alive(0) B=alive(0)")
       assert_true(initial_b.phase == @protocol.InitialPlan)
       assert_eq(initial_b.plan, "observe fake-action-B")
-      assert_eq(initial_b.reason, "seed 0 step 1 energy A=1 B=1")
+      assert_eq(initial_b.reason, "seed 0 step 1 A=alive(0) B=alive(0)")
     }
     _ => fail("expected lock, final plans, execution and next window")
   }

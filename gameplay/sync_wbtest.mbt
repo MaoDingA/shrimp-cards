@@ -116,8 +116,13 @@ test "npc lock acquire and release" {
   let (mgr3, ok2) = mgr2.try_lock("innkeeper", @protocol.B)
   assert_true(!ok2)
   let mgr4 = mgr3.release("innkeeper")
-  let (_, ok3) = mgr4.try_lock("innkeeper", @protocol.B)
+  let (mgr5, ok3) = mgr4.try_lock("innkeeper", @protocol.B)
   assert_true(ok3)
+  // Verify the re-acquired lock actually marks NPC as busy
+  assert_true(!mgr5.is_available("innkeeper"))
+  // And a second side cannot lock it again
+  let (_, ok4) = mgr5.try_lock("innkeeper", @protocol.A)
+  assert_true(!ok4)
 }
 
 ///|

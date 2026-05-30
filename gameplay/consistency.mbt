@@ -134,8 +134,7 @@ pub fn ConsistencyResult::pass() -> ConsistencyResult {
 pub fn ConsistencyResult::with_violations(
   violations~ : Array[ConsistencyViolation],
 ) -> ConsistencyResult {
-  let has_severe = false
-  let mut found_severe = has_severe
+  let mut found_severe = false
   for v in violations {
     match v.level {
       Severe => found_severe = true
@@ -299,8 +298,12 @@ fn classify_fact_mismatch(
   // If they share some commonality, it might be minor
   if expected == claimed {
     Minor
-  } else if expected.length() > 3 && claimed.contains(expected) {
-    // Claimed value contains the expected value (e.g., expected="tavern", claimed="the tavern")
+  } else if expected.length() > 3 &&
+    claimed.contains(expected) &&
+    claimed.length() < expected.length() * 3 {
+    // Claimed value contains the expected value and isn't much longer
+    // (e.g., expected="tavern", claimed="the tavern" → Minor)
+    // Avoids false positives like expected="king", claimed="asking"
     Minor
   } else {
     Moderate

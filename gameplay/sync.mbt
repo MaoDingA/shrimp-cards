@@ -172,12 +172,13 @@ pub fn NPCLockManager::try_lock(
       }
     }
   }
-  // Acquire lock
+  // Acquire lock: update Available entries or add new one
   let locks = self.locks.copy()
   let mut found = false
-  for pair in locks {
-    let (name, _status) = pair
+  for i = 0; i < locks.length(); i = i + 1 {
+    let (name, _status) = locks[i]
     if name == npc_name {
+      locks[i] = (npc_name, Busy(side))
       found = true
     }
   }

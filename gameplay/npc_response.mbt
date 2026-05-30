@@ -254,14 +254,6 @@ pub fn parse_npc_response(
     recovered = true
   }
 
-  // Check required text fields
-  if dialogue.length() == 0 {
-    errors.push(DialogueEmpty)
-  }
-  if reason.length() == 0 {
-    errors.push(ReasonEmpty)
-  }
-
   let response = NPCResponse::new(
     dialogue~,
     action~,
@@ -273,7 +265,7 @@ pub fn parse_npc_response(
     narration~,
   )
 
-  // Additional validation on the recovered response
+  // Validate the assembled response (checks dialogue, reason, delta range)
   let remaining = response.validate()
   for e in remaining {
     errors.push(e)

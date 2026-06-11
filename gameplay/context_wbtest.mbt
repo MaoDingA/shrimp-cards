@@ -16,18 +16,18 @@ test "blackboard new has correct defaults" {
 test "blackboard set and get character location" {
   let bb = WorldBlackboard::new(turn=1)
   let bb2 = bb.set_character_location(@protocol.A, "tavern")
-  assert_eq(bb2.get_character_location(@protocol.A), Some("tavern"))
+  assert_true(bb2.get_character_location(@protocol.A) == Some("tavern"))
   assert_true(bb2.get_character_location(@protocol.B) is None)
   // Update existing
   let bb3 = bb2.set_character_location(@protocol.A, "market")
-  assert_eq(bb3.get_character_location(@protocol.A), Some("market"))
+  assert_true(bb3.get_character_location(@protocol.A) == Some("market"))
 }
 
 ///|
 test "blackboard set and get npc location" {
   let bb = WorldBlackboard::new(turn=1)
   let bb2 = bb.set_npc_location("innkeeper", "tavern")
-  assert_eq(bb2.get_npc_location("innkeeper"), Some("tavern"))
+  assert_true(bb2.get_npc_location("innkeeper") == Some("tavern"))
   assert_true(bb2.get_npc_location("blacksmith") is None)
 }
 

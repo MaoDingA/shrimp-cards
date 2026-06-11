@@ -63,7 +63,7 @@ async test "client websocket heartbeat helper reports live connection" {
         1000,
       ),
     )
-    assert_eq(received, [@protocol.Heartbeat(@protocol.B).to_wire_text()])
+    assert_true(received == [@protocol.Heartbeat(@protocol.B).to_wire_text()])
   })
 }
 
@@ -127,10 +127,13 @@ async test "client websocket live session sends heartbeat loop" {
     })
     @async.sleep(90)
     live.session.close()
-    assert_eq(received, [
-      @protocol.JoinRequest::new("p1", "Alice").to_wire_text(),
-      @protocol.Heartbeat(@protocol.A).to_wire_text(),
-    ])
+    assert_true(
+      received ==
+      [
+        @protocol.JoinRequest::new("p1", "Alice").to_wire_text(),
+        @protocol.Heartbeat(@protocol.A).to_wire_text(),
+      ],
+    )
   })
 }
 
@@ -187,10 +190,13 @@ async test "client websocket live session uses one connection" {
     }
     live.session.send_input(@protocol.Ready(@protocol.A))
     @async.sleep(50)
-    assert_eq(received, [
-      @protocol.JoinRequest::new("p1", "Alice").to_wire_text(),
-      @protocol.Ready(@protocol.A).to_wire_text(),
-    ])
+    assert_true(
+      received ==
+      [
+        @protocol.JoinRequest::new("p1", "Alice").to_wire_text(),
+        @protocol.Ready(@protocol.A).to_wire_text(),
+      ],
+    )
     live.session.close()
   })
 }
@@ -216,7 +222,9 @@ async test "client websocket subscribes to event stream from cursor" {
         assert_true(side == @protocol.A)
       _ => fail("expected subscribed event")
     }
-    assert_eq(received, [@protocol.EventSubscription::new(2).to_wire_text()])
+    assert_true(
+      received == [@protocol.EventSubscription::new(2).to_wire_text()],
+    )
     session.close()
   })
 }

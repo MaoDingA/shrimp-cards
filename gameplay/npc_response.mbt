@@ -225,14 +225,14 @@ pub fn parse_npc_response(
   narration~ : String,
 ) -> ParseResult {
   let errors : Array[ValidationError] = []
-  let mut recovered = false
+  let mut _recovered = false
 
   // Parse action with fallback
   let action = match NPCAction::from_label(action_label) {
     Some(a) => a
     None => {
       errors.push(InvalidAction(action_label))
-      recovered = true
+      _recovered = true
       Talk // safe default
     }
   }
@@ -242,7 +242,7 @@ pub fn parse_npc_response(
     Some(e) => e
     None => {
       errors.push(InvalidEmotion(emotion_label))
-      recovered = true
+      _recovered = true
       Neutral // safe default
     }
   }
@@ -251,7 +251,7 @@ pub fn parse_npc_response(
   let delta = clamp_relationship_delta(relationship_delta)
   if delta != relationship_delta {
     errors.push(RelationshipDeltaOutOfRange(relationship_delta))
-    recovered = true
+    _recovered = true
   }
 
   let response = NPCResponse::new(
@@ -302,8 +302,8 @@ pub let max_parse_retries : Int = 2
 
 ///|
 pub(all) struct NPCResponseParseAttempt {
-  pub attempts : Int
-  pub result : ParseResult
+  attempts : Int
+  result : ParseResult
 } derive(Eq, Debug)
 
 /// Simulate retry logic: given a parse result, decide whether to retry.

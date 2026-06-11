@@ -8,7 +8,9 @@ pub(all) struct MatchSession {
   mut current_window_id : @protocol.WindowId?
   mut current_interventions : Array[@protocol.Intervention]
   mut game_state : @gameplay.GameState
-} derive(Eq, Debug)
+  mut world_blackboard : @gameplay.WorldBlackboard
+  mut llm_provider : @gameplay.LLMProvider
+} derive(Debug)
 
 ///|
 pub fn MatchSession::new() -> MatchSession {
@@ -26,6 +28,8 @@ pub fn MatchSession::new_with_seed(seed~ : Int) -> MatchSession {
     current_window_id: None,
     current_interventions: [],
     game_state: @gameplay.GameState::initial(seed~),
+    world_blackboard: @gameplay.WorldBlackboard::new(turn=1),
+    llm_provider: @gameplay.mock_provider_with_default(),
   }
 }
 
@@ -82,24 +86,62 @@ fn MatchSession::initial_plan(
   window_id : @protocol.WindowId,
 ) -> @protocol.AgentPlan {
   let observation = self.game_state.observe(side, window_id)
-  let action = self.game_state.fake_action(side, window_id, [])
+  let prompt = @gameplay.build_initial_plan_prompt(
+    side,
+    window_id,
+    observation.state_summary,
+    self.world_blackboard.to_context_string(),
+  )
+  let request = @gameplay.LLMRequest::new(
+    kind=@gameplay.InitialPlan,
+    side~,
+    window_id~,
+    prompt~,
+    max_tokens=@gameplay.max_tokens_initial_plan,
+    model_tier=@gameplay.Fast,
+  )
+  let (provider, response) = self.llm_provider.generate(request)
+  self.llm_provider = provider
   @protocol.AgentPlan::new(
     side~,
     window_id~,
     phase=@protocol.InitialPlan,
-    plan="observe \{action.label}",
+    plan=response.content,
     reason=observation.state_summary,
   )
 }
 
 ///|
-fn final_plan_from_action(action : @gameplay.GameAction) -> @protocol.AgentPlan {
+fn MatchSession::final_plan(
+  self : MatchSession,
+  side : @protocol.Side,
+  window_id : @protocol.WindowId,
+) -> @protocol.AgentPlan {
+  let observation = self.game_state.observe(side, window_id)
+  let side_interventions = self.interventions_for_side(side)
+  let prompt = @gameplay.build_final_plan_prompt(
+    side,
+    window_id,
+    observation.state_summary,
+    side_interventions,
+    "pending",
+  )
+  let request = @gameplay.LLMRequest::new(
+    kind=@gameplay.FinalPlan,
+    side~,
+    window_id~,
+    prompt~,
+    max_tokens=@gameplay.max_tokens_final_plan,
+    model_tier=@gameplay.Standard,
+  )
+  let (provider, response) = self.llm_provider.generate(request)
+  self.llm_provider = provider
   @protocol.AgentPlan::new(
-    side=action.side,
-    window_id=action.window_id,
+    side~,
+    window_id~,
     phase=@protocol.FinalPlan,
-    plan=action.label,
-    reason=action.detail,
+    plan=response.content,
+    reason=observation.state_summary,
   )
 }
 
@@ -208,17 +250,23 @@ fn MatchSession::handle_intervention_outcome(
   } else if !self.has_side(intervention.side) {
     { response: @protocol.InputRejected("side not seated"), events }
   } else {
-    match self.current_window_id {
-      None =>
-        { response: @protocol.InputRejected("no open input window"), events }
-      Some(window_id) =>
-        if intervention.is_for_window(window_id) {
-          self.current_interventions.push(intervention)
-          events.push(@protocol.InterventionSubmitted(intervention))
-          { response: @protocol.InterventionAccepted(intervention), events }
-        } else {
-          { response: @protocol.InputRejected("stale input window"), events }
-        }
+    // Gate 1: prompt defense check on intervention text
+    let gate1 = @gameplay.gate1_check(intervention.text)
+    if !gate1.passed {
+      { response: @protocol.InputRejected(gate1.reason), events }
+    } else {
+      match self.current_window_id {
+        None =>
+          { response: @protocol.InputRejected("no open input window"), events }
+        Some(window_id) =>
+          if intervention.is_for_window(window_id) {
+            self.current_interventions.push(intervention)
+            events.push(@protocol.InterventionSubmitted(intervention))
+            { response: @protocol.InterventionAccepted(intervention), events }
+          } else {
+            { response: @protocol.InputRejected("stale input window"), events }
+          }
+      }
     }
   }
 }
@@ -373,6 +421,12 @@ pub fn MatchSession::lock_current_window(
         let events : Array[@protocol.ServerEvent] = [
           @protocol.WindowLocked(window_id),
         ]
+        // Use LLM provider for final plan generation
+        let plan_a = self.final_plan(@protocol.A, window_id)
+        let plan_b = self.final_plan(@protocol.B, window_id)
+        events.push(@protocol.AgentPlanIssued(plan_a))
+        events.push(@protocol.AgentPlanIssued(plan_b))
+        // Use fake actions for resolve (real gameplay will replace this)
         let action_a = self.game_state.fake_action(
           @protocol.A,
           window_id,
@@ -383,12 +437,20 @@ pub fn MatchSession::lock_current_window(
           window_id,
           self.interventions_for_side(@protocol.B),
         )
-        events.push(@protocol.AgentPlanIssued(final_plan_from_action(action_a)))
-        events.push(@protocol.AgentPlanIssued(final_plan_from_action(action_b)))
         let result = self.game_state.resolve_window(window_id, [
           action_a, action_b,
         ])
         self.game_state = result.state
+        // Update world blackboard turn
+        self.world_blackboard = @gameplay.WorldBlackboard::new(
+          turn=self.game_state.executed_windows + 1,
+        )
+        // Check narrative consistency (placeholder: no claims extracted yet)
+        let _consistency = @gameplay.check_consistency(
+          [],
+          self.world_blackboard,
+        )
+        // Violations logged but not blocking for now
         events.push(@protocol.WindowExecuted(window_id))
         for event in self.open_window_events(self.next_window()) {
           events.push(event)

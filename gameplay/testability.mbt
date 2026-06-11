@@ -120,14 +120,14 @@ pub fn MockLLM::last_input(self : MockLLM) -> String? {
 
 ///|
 pub(all) struct TestScenario {
-  pub seed : Int
-  pub turn : Int
-  pub side_a_alive : Bool
-  pub side_b_alive : Bool
-  pub side_a_potential : RoutePotential
-  pub side_b_potential : RoutePotential
-  pub blackboard : WorldBlackboard
-  pub budget : TokenBudget
+  seed : Int
+  turn : Int
+  side_a_alive : Bool
+  side_b_alive : Bool
+  side_a_potential : RoutePotential
+  side_b_potential : RoutePotential
+  blackboard : WorldBlackboard
+  budget : TokenBudget
 } derive(Eq, Debug, ToJson, FromJson)
 
 ///|

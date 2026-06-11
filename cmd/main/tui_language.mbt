@@ -14,7 +14,7 @@ fn display_lang_from_code(code : String) -> DisplayLang {
 
 ///|
 fn parse_display_lang_command(line : String) -> DisplayLang? {
-  match line.trim().to_string() {
+  match line.trim().to_owned() {
     "/lang zh" => Some(Zh)
     "/lang en" => Some(En)
     _ => None

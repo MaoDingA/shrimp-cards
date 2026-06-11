@@ -62,7 +62,7 @@ test "mock llm logs inputs" {
   let mock = MockLLM::new(default=fallback_npc_response())
   let (mock2, _) = mock.respond("first input")
   let (mock3, _) = mock2.respond("second input")
-  assert_eq(mock3.last_input(), Some("second input"))
+  assert_true(mock3.last_input() == Some("second input"))
   assert_eq(mock3.times_called(), 2)
 }
 

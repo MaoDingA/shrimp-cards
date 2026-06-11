@@ -158,9 +158,10 @@ test "replay command formats event stream lines" {
       },
     ],
   )
-  assert_eq(replay_event_lines(log, "A"), [
-    "replay match-1 view A", "#0 Alice joined as A", "#1 A ready",
-  ])
+  assert_true(
+    replay_event_lines(log, "A") ==
+    ["replay match-1 view A", "#0 Alice joined as A", "#1 A ready"],
+  )
 }
 
 ///|
@@ -185,14 +186,20 @@ test "replay command formats metadata and window views" {
       },
     ],
   )
-  assert_eq(replay_metadata_lines(log), [
-    "replay match-1 metadata", "created_at 2026-04-28T00:00:00Z", "seed 42", "protocol 4",
-    "format 1", "events 4",
-  ])
-  assert_eq(replay_window_lines(log, "A"), [
-    "replay match-1 view A windows", "window 1", "#1 window 1 opened", "#2 window 1 locked",
-    "window 2", "#3 window 2 opened",
-  ])
+  assert_true(
+    replay_metadata_lines(log) ==
+    [
+      "replay match-1 metadata", "created_at 2026-04-28T00:00:00Z", "seed 42", "protocol 4",
+      "format 1", "events 4",
+    ],
+  )
+  assert_true(
+    replay_window_lines(log, "A") ==
+    [
+      "replay match-1 view A windows", "window 1", "#1 window 1 opened", "#2 window 1 locked",
+      "window 2", "#3 window 2 opened",
+    ],
+  )
 }
 
 ///|
@@ -203,9 +210,9 @@ test "replay command rejects unknown mode" {
     ),
     [],
   )
-  assert_eq(replay_lines(log, "A", "timeline"), [
-    "invalid replay mode: timeline",
-  ])
+  assert_true(
+    replay_lines(log, "A", "timeline") == ["invalid replay mode: timeline"],
+  )
 }
 
 ///|
@@ -216,7 +223,7 @@ test "replay command rejects unknown view labels" {
     ),
     [],
   )
-  assert_eq(replay_event_lines(log, "spectator"), [
-    "invalid replay view: spectator",
-  ])
+  assert_true(
+    replay_event_lines(log, "spectator") == ["invalid replay view: spectator"],
+  )
 }

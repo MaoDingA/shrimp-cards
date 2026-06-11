@@ -8,7 +8,7 @@ test "player view exposes own plan and hides opponent plan" {
   let view = state.view_for(@protocol.A)
   assert_true(view.viewer == @protocol.A)
   assert_eq(view.own_agent_plan, "A defends")
-  assert_eq(view.opponent_agent_plan, None)
+  assert_true(view.opponent_agent_plan is None)
   assert_eq(view.public_interventions.length(), 2)
 }
 
@@ -34,7 +34,7 @@ test "replay window view uses the same hidden-plan boundary" {
   let view = view_replay_window(record, @protocol.B)
   assert_true(view.viewer == @protocol.B)
   assert_eq(view.own_agent_plan, "B final")
-  assert_eq(view.opponent_agent_plan, None)
+  assert_true(view.opponent_agent_plan is None)
   assert_eq(view.public_interventions.length(), 1)
 }
 

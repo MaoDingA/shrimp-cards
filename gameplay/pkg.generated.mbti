@@ -4,13 +4,216 @@ package "MaoDingA/shrimp_cards/gameplay"
 import {
   "MaoDingA/shrimp_cards/protocol",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
+pub let budget_game_rules : Int
+
+pub let budget_npc_memory : Int
+
+pub let budget_recent_history : Int
+
+pub fn budget_remaining() -> Int
+
+pub let budget_total : Int
+
+pub let budget_world_state : Int
+
+pub fn check_consistency(Array[Claim], WorldBlackboard) -> ConsistencyResult
+
+pub fn check_in_range(Int, Int, Int) -> Bool
+
+pub fn check_npc_visibility(String, String, @protocol.Side, Int) -> Visibility
+
+pub fn check_timeout(Int, ModelTier) -> TimeoutAction
+
+pub fn check_valid_text(String, Int) -> Bool
+
+pub fn clamp_relationship_delta(Int) -> Int
+
+pub fn classify_intent(String) -> Gate2Result
+
+pub fn compare_events(QueuedEvent, QueuedEvent) -> Int
+
+pub let conservation_threshold_fraction : Int
+
+pub let cost_multiplier_fast : Int
+
+pub let cost_multiplier_premium : Int
+
+pub let cost_multiplier_standard : Int
+
+pub let default_session_budget : Int
+
+pub let dominant_threshold : Int
+
+pub fn estimate_interaction_cost(ModelTier, Int) -> Int
+
+pub fn evaluate_effect(Gate2Result, EffectContext) -> Gate3Result
+
+pub fn fallback_npc_response() -> NPCResponse
+
+pub fn gate1_check(String) -> Gate1Result
+
+pub let hard_limit_fraction : Int
+
+pub fn intent_to_tier(PlayerIntent) -> InfluenceTier
+
+pub fn is_tier_allowed(InfluenceTier, InfluenceTier) -> Bool
+
+pub let latency_fast : Int
+
+pub let latency_premium : Int
+
+pub let latency_standard : Int
+
+pub let max_consistency_retries : Int
+
+pub let max_dialogue_length : Int
+
+pub let max_input_length : Int
+
+pub let max_parse_retries : Int
+
+pub let max_relationship_delta : Int
+
+pub let max_windows : Int
+
+pub let memory_importance_floor : Int
+
+pub let min_relationship_delta : Int
+
+pub let min_uses_for_dominant : Int
+
+pub fn parse_npc_response(dialogue~ : String, action_label~ : String, emotion_label~ : String, accepted~ : Bool, reason~ : String, relationship_delta~ : Int, information_disclosed~ : Array[String], narration~ : String) -> ParseResult
+
+pub fn plan_precomputation(Array[String], Int) -> Array[PrecomputeRequest]
+
+pub fn route_model(RoutingContext) -> ModelTier
+
+pub fn run_defense_pipeline(String, effect_context~ : EffectContext) -> DefenseResult
+
+pub fn scene_variant_pool() -> Array[SceneVariant]
+
+pub fn select_scene_variant(Int) -> SceneVariant
+
+pub fn should_retry_consistency(ConsistencyResult, Int) -> Bool
+
+pub fn should_retry_parse(ParseResult, Int) -> Bool
+
+pub let timeout_fallback : Int
+
+pub let timeout_primary : Int
+
+pub let tokens_idle_chat : Int
+
+pub let tokens_intent_classify : Int
+
+pub let tokens_key_narrative : Int
+
+pub let tokens_standard_interaction : Int
+
+pub let tokens_summary : Int
+
+pub let victory_potential_threshold : Int
 
 // Errors
 
 // Types and methods
+pub(all) struct Claim {
+  claim_type : ClaimType
+  subject : String
+  value : String
+  confidence : Int
+  source_text : String
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn Claim::new(claim_type~ : ClaimType, subject~ : String, value~ : String, confidence~ : Int, source_text~ : String) -> Self
+
+pub(all) enum ClaimType {
+  CharacterLocation
+  NPCLocation
+  FactStatement
+  Relationship
+  ItemPossession
+  Event
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn ClaimType::label(Self) -> String
+
+pub(all) struct ConsistencyResult {
+  violations : Array[ConsistencyViolation]
+  acceptable : Bool
+  corrected : Bool
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn ConsistencyResult::has_minor(Self) -> Bool
+pub fn ConsistencyResult::has_moderate(Self) -> Bool
+pub fn ConsistencyResult::has_severe(Self) -> Bool
+pub fn ConsistencyResult::pass() -> Self
+pub fn ConsistencyResult::violation_count(Self) -> Int
+pub fn ConsistencyResult::with_violations(violations~ : Array[ConsistencyViolation]) -> Self
+
+pub(all) struct ConsistencyViolation {
+  claim : Claim
+  blackboard_key : String
+  expected_value : String
+  claimed_value : String
+  level : ViolationLevel
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn ConsistencyViolation::new(claim~ : Claim, blackboard_key~ : String, expected_value~ : String, claimed_value~ : String, level~ : ViolationLevel) -> Self
+
+pub(all) struct CostReport {
+  total_consumed : Int
+  percent_used : Int
+  conservation_mode : Bool
+  hard_limit_reached : Bool
+  recommendation : String
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn CostReport::from_budget(TokenBudget) -> Self
+
+pub(all) struct DefenseResult {
+  gate1 : Gate1Result
+  gate2 : Gate2Result?
+  gate3 : Gate3Result?
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct DialogueHistory {
+  turns : Array[DialogueTurn]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn DialogueHistory::add(Self, DialogueTurn) -> Self
+pub fn DialogueHistory::length(Self) -> Int
+pub fn DialogueHistory::new() -> Self
+pub fn DialogueHistory::recent_within_budget(Self, max_tokens~ : Int, max_turns~ : Int) -> Array[DialogueTurn]
+
+pub(all) struct DialogueTurn {
+  speaker : String
+  text : String
+  turn : Int
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn DialogueTurn::estimated_tokens(Self) -> Int
+pub fn DialogueTurn::new(speaker~ : String, text~ : String, turn~ : Int) -> Self
+
+pub(all) struct EffectContext {
+  npc_relationship : Int
+  player_reputation : Int
+  npc_resistance : Int
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn EffectContext::new(npc_relationship~ : Int, player_reputation~ : Int, npc_resistance~ : Int) -> Self
+
+pub(all) enum EventPriority {
+  Low
+  Normal
+  High
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn EventPriority::value(Self) -> Int
+
+pub(all) struct EventQueue {
+  events : Array[QueuedEvent]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn EventQueue::length(Self) -> Int
+pub fn EventQueue::new() -> Self
+pub fn EventQueue::pop(Self) -> (Self, QueuedEvent?)
+pub fn EventQueue::push(Self, QueuedEvent) -> Self
+
 pub(all) struct GameAction {
   side : @protocol.Side
   window_id : @protocol.WindowId
@@ -18,28 +221,417 @@ pub(all) struct GameAction {
   detail : String
 } derive(Eq, @debug.Debug)
 
+pub(all) enum GameEnding {
+  SideVictory(@protocol.Side, VictoryRoute, String)
+  BothEliminated(String)
+  ForcedEnd(String)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn GameEnding::summary(Self) -> String
+
 pub(all) struct GameObservation {
   side : @protocol.Side
   window_id : @protocol.WindowId
   state_summary : String
 } derive(Eq, @debug.Debug)
+pub fn GameObservation::new(side~ : @protocol.Side, window_id~ : @protocol.WindowId, state_summary~ : String) -> Self
 
 pub(all) struct GameState {
   seed : Int
   executed_windows : Int
-  side_a_energy : Int
-  side_b_energy : Int
+  side_a_alive : Bool
+  side_b_alive : Bool
+  side_a_potential : RoutePotential
+  side_b_potential : RoutePotential
 } derive(Eq, @debug.Debug)
 pub fn GameState::fake_action(Self, @protocol.Side, @protocol.WindowId, Array[@protocol.Intervention]) -> GameAction
 pub fn GameState::initial(seed~ : Int) -> Self
+pub fn GameState::is_alive(Self, @protocol.Side) -> Bool
 pub fn GameState::observe(Self, @protocol.Side, @protocol.WindowId) -> GameObservation
+pub fn GameState::potential(Self, @protocol.Side) -> RoutePotential
 pub fn GameState::resolve_window(Self, @protocol.WindowId, Array[GameAction]) -> ResolveResult
 pub fn GameState::summary(Self) -> String
+
+pub(all) struct Gate1Result {
+  passed : Bool
+  severity : ViolationSeverity
+  reason : String
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn Gate1Result::block(reason~ : String) -> Self
+pub fn Gate1Result::ok() -> Self
+pub fn Gate1Result::warn(reason~ : String) -> Self
+
+pub(all) struct Gate2Result {
+  intent : PlayerIntent
+  power_level : Int
+  target : InfluenceTarget
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn Gate2Result::new(intent~ : PlayerIntent, power_level~ : Int, target~ : InfluenceTarget) -> Self
+
+pub(all) struct Gate3Result {
+  effectiveness : Int
+  allowed : Bool
+  narrative_hint : String
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn Gate3Result::new(effectiveness~ : Int, allowed~ : Bool, narrative_hint~ : String) -> Self
+
+pub(all) enum InfluenceTarget {
+  NPCAction
+  WorldState
+  Information
+  None
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) enum InfluenceTier {
+  Low
+  Medium
+  High
+  Immutable
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn InfluenceTier::label(Self) -> String
+
+pub(all) struct MockLLM {
+  responses : Array[(String, MockLLMResponse)]
+  default_response : NPCResponse
+  call_count : Int
+  input_log : Array[String]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn MockLLM::add_response(Self, String, MockLLMResponse) -> Self
+pub fn MockLLM::last_input(Self) -> String?
+pub fn MockLLM::new(default~ : NPCResponse) -> Self
+pub fn MockLLM::respond(Self, String) -> (Self, NPCResponse)
+pub fn MockLLM::times_called(Self) -> Int
+pub fn MockLLM::was_called(Self) -> Bool
+
+pub(all) struct MockLLMResponse {
+  response : NPCResponse
+  consume : Bool
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn MockLLMResponse::always(response~ : NPCResponse) -> Self
+pub fn MockLLMResponse::once(response~ : NPCResponse) -> Self
+
+pub(all) enum ModelTier {
+  Fast
+  Standard
+  Premium
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn ModelTier::cost_multiplier(Self) -> Int
+pub fn ModelTier::estimated_latency_ms(Self) -> Int
+pub fn ModelTier::label(Self) -> String
+
+pub(all) enum NPCAction {
+  Talk
+  Move
+  GiveItem
+  Attack
+  Flee
+  Neutral
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn NPCAction::all() -> Array[Self]
+pub fn NPCAction::from_label(String) -> Self?
+pub fn NPCAction::label(Self) -> String
+
+pub(all) enum NPCAvailability {
+  Available
+  Busy(@protocol.Side)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) enum NPCEmotion {
+  Friendly
+  Neutral
+  Suspicious
+  Hostile
+  Fearful
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn NPCEmotion::all() -> Array[Self]
+pub fn NPCEmotion::from_label(String) -> Self?
+pub fn NPCEmotion::label(Self) -> String
+
+pub(all) struct NPCLockManager {
+  locks : Array[(String, NPCAvailability)]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn NPCLockManager::is_available(Self, String) -> Bool
+pub fn NPCLockManager::new() -> Self
+pub fn NPCLockManager::release(Self, String) -> Self
+pub fn NPCLockManager::try_lock(Self, String, @protocol.Side) -> (Self, Bool)
+
+pub(all) struct NPCMemoryEntry {
+  fact : String
+  importance : Int
+  turn : Int
+  context : String
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn NPCMemoryEntry::estimated_tokens(Self) -> Int
+pub fn NPCMemoryEntry::new(fact~ : String, importance~ : Int, turn~ : Int, context~ : String) -> Self
+
+pub(all) struct NPCMemoryStore {
+  entries : Array[NPCMemoryEntry]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn NPCMemoryStore::add(Self, NPCMemoryEntry) -> Self
+pub fn NPCMemoryStore::decay(Self, decay_amount~ : Int) -> Self
+pub fn NPCMemoryStore::length(Self) -> Int
+pub fn NPCMemoryStore::new() -> Self
+pub fn NPCMemoryStore::retrieve(Self, current_turn~ : Int, max_tokens~ : Int, max_count~ : Int) -> Array[NPCMemoryEntry]
+
+pub(all) struct NPCResistance {
+  npc_name : String
+  base : Int
+  adjustment : Int
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn NPCResistance::adjust_for_dominance(Self, Int) -> Self
+pub fn NPCResistance::effective(Self) -> Int
+pub fn NPCResistance::new(npc_name~ : String, base~ : Int) -> Self
+
+pub(all) struct NPCResponse {
+  dialogue : String
+  action : NPCAction
+  emotion : NPCEmotion
+  accepted : Bool
+  reason : String
+  relationship_delta : Int
+  information_disclosed : Array[String]
+  narration : String
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn NPCResponse::is_valid(Self) -> Bool
+pub fn NPCResponse::new(dialogue~ : String, action~ : NPCAction, emotion~ : NPCEmotion, accepted~ : Bool, reason~ : String, relationship_delta~ : Int, information_disclosed~ : Array[String], narration~ : String) -> Self
+pub fn NPCResponse::validate(Self) -> Array[ValidationError]
+
+pub(all) struct NPCResponseParseAttempt {
+  attempts : Int
+  result : ParseResult
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ParseResult {
+  Success(NPCResponse)
+  Recoverable(NPCResponse, Array[ValidationError])
+  Failed(Array[ValidationError])
+} derive(Eq, @debug.Debug)
+
+pub(all) enum PlayerIntent {
+  Inquire
+  Persuade
+  Threaten
+  Bribe
+  Attack
+  Move
+  Explore
+  Investigate
+  Other
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn PlayerIntent::all() -> Array[Self]
+pub fn PlayerIntent::label(Self) -> String
+
+pub(all) struct PrecomputeRequest {
+  precompute_type : PrecomputeType
+  npc_name : String
+  token_cost : Int
+  priority : Int
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn PrecomputeRequest::new(precompute_type~ : PrecomputeType, npc_name~ : String, token_cost~ : Int, priority~ : Int) -> Self
+
+pub(all) enum PrecomputeType {
+  NPCIdleDialogue
+  SceneBranches
+  StandardResponses
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct PromptContext {
+  rules_text : String
+  world_state_text : String
+  memory_entries : Array[NPCMemoryEntry]
+  recent_dialogue : Array[DialogueTurn]
+  player_request : String
+} derive(Eq, @debug.Debug)
+pub fn PromptContext::estimated_total_tokens(Self) -> Int
+pub fn PromptContext::exceeds_budget(Self) -> Bool
+
+pub(all) struct QueuedEvent {
+  side : @protocol.Side
+  sequence : Int
+  priority : EventPriority
+  target_npc : String
+  action : String
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn QueuedEvent::new(side~ : @protocol.Side, sequence~ : Int, priority~ : EventPriority, target_npc~ : String, action~ : String) -> Self
 
 pub(all) struct ResolveResult {
   state : GameState
   public_log : String
+  ending : GameEnding?
 } derive(Eq, @debug.Debug)
+
+pub(all) struct ResponseProgress {
+  stage : ResponseStage
+  estimated_total_ms : Int
+  elapsed_ms : Int
+  partial_text : String
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn ResponseProgress::new(stage~ : ResponseStage, estimated_total_ms~ : Int, elapsed_ms~ : Int, partial_text~ : String) -> Self
+pub fn ResponseProgress::progress_fraction(Self) -> Int
+
+pub(all) enum ResponseStage {
+  Received
+  Classifying
+  Evaluating
+  Streaming
+  Complete
+  Fallback
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn ResponseStage::label(Self) -> String
+
+pub(all) struct RoutePotential {
+  law : Int
+  assassination : Int
+  public_opinion : Int
+  intrigue : Int
+  masses : Int
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn RoutePotential::add(Self, VictoryRoute, Int) -> Self
+pub fn RoutePotential::get(Self, VictoryRoute) -> Int
+pub fn RoutePotential::highest_route(Self) -> (VictoryRoute, Int)
+pub fn RoutePotential::set(Self, VictoryRoute, Int) -> Self
+pub fn RoutePotential::total(Self) -> Int
+pub fn RoutePotential::zero() -> Self
+
+pub(all) struct RoutingContext {
+  intent : PlayerIntent
+  is_kill_attempt : Bool
+  is_endgame : Bool
+  turn : Int
+  token_budget_remaining : Int
+  conservation_mode : Bool
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn RoutingContext::new(intent~ : PlayerIntent, is_kill_attempt~ : Bool, is_endgame~ : Bool, turn~ : Int, token_budget_remaining~ : Int, conservation_mode~ : Bool) -> Self
+
+pub(all) struct SceneVariant {
+  name : String
+  description : String
+  tags : Array[String]
+  weight : Int
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn SceneVariant::new(name~ : String, description~ : String, tags~ : Array[String], weight~ : Int) -> Self
+
+pub(all) struct StrategyRecord {
+  fingerprint : String
+  use_count : Int
+  win_count : Int
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn StrategyRecord::is_dominant(Self) -> Bool
+pub fn StrategyRecord::new(fingerprint~ : String) -> Self
+pub fn StrategyRecord::record_use(Self, Bool) -> Self
+pub fn StrategyRecord::win_rate(Self) -> Int
+
+pub(all) struct StrategyTracker {
+  records : Array[StrategyRecord]
+  total_games : Int
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn StrategyTracker::dominant_strategies(Self) -> Array[StrategyRecord]
+pub fn StrategyTracker::new() -> Self
+pub fn StrategyTracker::record(Self, String, Bool) -> Self
+
+pub(all) struct TestScenario {
+  seed : Int
+  turn : Int
+  side_a_alive : Bool
+  side_b_alive : Bool
+  side_a_potential : RoutePotential
+  side_b_potential : RoutePotential
+  blackboard : WorldBlackboard
+  budget : TokenBudget
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn TestScenario::new() -> Self
+pub fn TestScenario::to_game_state(Self) -> GameState
+pub fn TestScenario::with_potential(Self, @protocol.Side, VictoryRoute, Int) -> Self
+pub fn TestScenario::with_seed(Self, Int) -> Self
+pub fn TestScenario::with_side_a_alive(Self, Bool) -> Self
+pub fn TestScenario::with_side_b_alive(Self, Bool) -> Self
+pub fn TestScenario::with_turn(Self, Int) -> Self
+
+pub(all) enum TimeoutAction {
+  Continue
+  Downgrade(ModelTier)
+  UseFallback
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct TokenBudget {
+  total_budget : Int
+  consumed : Int
+  endgame_reserve : Int
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn TokenBudget::available(Self) -> Int
+pub fn TokenBudget::can_afford(Self, Int) -> Bool
+pub fn TokenBudget::consumed_fraction(Self) -> Int
+pub fn TokenBudget::default() -> Self
+pub fn TokenBudget::force_spend(Self, Int) -> Self
+pub fn TokenBudget::is_conservation_mode(Self) -> Bool
+pub fn TokenBudget::is_hard_limit(Self) -> Bool
+pub fn TokenBudget::new(total_budget~ : Int) -> Self
+pub fn TokenBudget::remaining(Self) -> Int
+pub fn TokenBudget::spend(Self, Int) -> Self?
+
+pub(all) enum ValidationError {
+  DialogueEmpty
+  DialogueTooLong(Int)
+  InvalidAction(String)
+  InvalidEmotion(String)
+  ReasonEmpty
+  RelationshipDeltaOutOfRange(Int)
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn ValidationError::message(Self) -> String
+
+pub(all) enum VictoryRoute {
+  Law
+  Assassination
+  PublicOpinion
+  Intrigue
+  Masses
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn VictoryRoute::all() -> Array[Self]
+pub fn VictoryRoute::display_name(Self) -> String
+pub fn VictoryRoute::label(Self) -> String
+
+pub(all) enum ViolationLevel {
+  Minor
+  Moderate
+  Severe
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn ViolationLevel::label(Self) -> String
+
+pub(all) enum ViolationSeverity {
+  Blocked
+  Warned
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) enum Visibility {
+  Visible
+  Partial
+  Hidden
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct WorldBlackboard {
+  turn : Int
+  character_locations : Array[(String, String)]
+  npc_locations : Array[(String, String)]
+  facts : Array[WorldFact]
+  npc_moods : Array[(String, Int)]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn WorldBlackboard::get_character_location(Self, @protocol.Side) -> String?
+pub fn WorldBlackboard::get_fact(Self, String) -> WorldFact?
+pub fn WorldBlackboard::get_npc_location(Self, String) -> String?
+pub fn WorldBlackboard::get_npc_mood(Self, String) -> Int
+pub fn WorldBlackboard::new(turn~ : Int) -> Self
+pub fn WorldBlackboard::set_character_location(Self, @protocol.Side, String) -> Self
+pub fn WorldBlackboard::set_fact(Self, WorldFact) -> Self
+pub fn WorldBlackboard::set_npc_location(Self, String, String) -> Self
+pub fn WorldBlackboard::set_npc_mood(Self, String, Int) -> Self
+pub fn WorldBlackboard::to_context_string(Self) -> String
+
+pub(all) struct WorldFact {
+  key : String
+  value : String
+  established_turn : Int
+  source : String
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn WorldFact::new(key~ : String, value~ : String, established_turn~ : Int, source~ : String) -> Self
 
 // Type aliases
 

@@ -244,9 +244,9 @@ pub(all) enum Visibility {
 
 ///|
 pub fn check_npc_visibility(
-  npc_name : String,
+  _npc_name : String,
   info_type : String,
-  requesting_side : @protocol.Side,
+  _requesting_side : @protocol.Side,
   relationship : Int,
 ) -> Visibility {
   // Relationship-based visibility

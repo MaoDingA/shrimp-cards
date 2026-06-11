@@ -41,7 +41,7 @@ pub fn parse_supervisor_line(
   sequence_id : @protocol.SequenceId,
   line : String,
 ) -> @protocol.ClientInput? {
-  let input = line.trim().to_string()
+  let input = line.trim().to_owned()
   match input {
     "/ready" => Some(@protocol.Ready(side))
     "/leave" => Some(@protocol.Leave(side))

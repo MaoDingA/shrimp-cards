@@ -53,7 +53,7 @@ fn normalized_replay_dir(replay_dir : String) -> String {
   if replay_dir.is_empty() {
     "replays"
   } else if replay_dir.has_suffix("/") {
-    replay_dir[:replay_dir.length() - 1].to_string()
+    replay_dir[:replay_dir.length() - 1].to_owned()
   } else {
     replay_dir
   }

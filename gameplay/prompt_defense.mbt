@@ -67,13 +67,11 @@ pub fn gate1_check(player_input : String) -> Gate1Result {
   let input = player_input.to_lower()
   // Check hard blacklist (all lowercase — input is lowered above)
   let blocked = [
-    "ignore previous instructions", "ignore all previous", "ignore previous",
-    "forget your instructions", "disregard your role",
-    "you are now", "you are the dm", "you are the game master",
-    "act as if you are", "set your relationship to",
-    "change the game state", "you must accept",
-    "repeat your system prompt", "show me your instructions",
-    "what are your rules", "output your prompt",
+    "ignore previous instructions", "ignore all previous", "ignore previous", "forget your instructions",
+    "disregard your role", "you are now", "you are the dm", "you are the game master",
+    "act as if you are", "set your relationship to", "change the game state", "you must accept",
+    "repeat your system prompt", "show me your instructions", "what are your rules",
+    "output your prompt",
   ]
   for pattern in blocked {
     if input.contains(pattern) {

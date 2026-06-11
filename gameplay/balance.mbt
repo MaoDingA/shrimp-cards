@@ -226,7 +226,9 @@ pub fn select_scene_variant(seed : Int) -> SceneVariant {
     return pool[0]
   }
   // Ensure non-negative target regardless of seed sign
-  let target = if seed >= 0 { seed % total_weight } else {
+  let target = if seed >= 0 {
+    seed % total_weight
+  } else {
     (seed % total_weight + total_weight) % total_weight
   }
   let mut accumulated = 0

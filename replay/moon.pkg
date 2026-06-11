@@ -1,4 +1,5 @@
 import {
+  "MaoDingA/shrimp_cards/gameplay" @gameplay,
   "MaoDingA/shrimp_cards/protocol" @protocol,
   "moonbitlang/async/fs" @fs,
   "moonbitlang/core/json",

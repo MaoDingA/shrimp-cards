@@ -22,7 +22,7 @@ pub fn JoinRequest::is_compatible(self : JoinRequest) -> Bool {
 fn split_wire_text(frame : String) -> Array[String] {
   let parts : Array[String] = []
   for part in frame.split("\t") {
-    parts.push(part.to_string())
+    parts.push(part.to_owned())
   }
   parts
 }
